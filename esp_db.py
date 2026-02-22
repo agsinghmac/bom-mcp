@@ -856,11 +856,6 @@ class ESPDatabase:
             WHERE assembly_code = ? AND part_number = ?
         """, (quantity, assembly_code, part_number))
         self.conn.commit()
-        # If the database is empty, populate sample data
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM parts")
-        if cursor.fetchone()[0] == 0:
-            self.populate_sample_data()
 
         return self.get_assembly(assembly_code)
 
