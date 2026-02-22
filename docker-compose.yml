@@ -1,20 +1,10 @@
 version: '3.8'
 
 services:
-  api:
-    build: .
-    ports:
-      - "5000:8080"
-    environment:
-      - PORT=8080
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-
-  # MCP server (optional, for stdio transport)
   mcp:
     build: .
-    command: python run_mcp.py
+    ports:
+      - "8080:8080"
     volumes:
       - ./data:/app/data
     restart: unless-stopped

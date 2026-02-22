@@ -17,5 +17,5 @@ RUN mkdir -p /app/data
 # Expose port 8080 (Cloud Run default)
 EXPOSE 8080
 
-# Run with gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "api:app"]
+# Run MCP server with SSE transport (default)
+CMD ["python", "run_mcp.py", "--port", "8080"]

@@ -1,13 +1,13 @@
 # BOM-MCP
 
-Electric Submersible Pump (ESP) Parts and Bill of Materials (BOM) database with REST API, CLI, and MCP interface.
+Electric Submersible Pump (ESP) Parts and Bill of Materials (BOM) database with MCP server for AI assistants.
 
 ## Features
 
 - SQLite database with ESP parts, assemblies, and units
-- REST API server (Flask)
+- MCP server (SSE transport) for AI assistants
 - Command-line interface
-- MCP server for AI assistants
+- REST API server (optional)
 
 ## Installation
 
@@ -17,7 +17,13 @@ pip install -r requirements.txt
 
 ## Usage
 
-### REST API
+### MCP Server (SSE transport - default)
+
+```bash
+python run_mcp.py --port 8080
+```
+
+### REST API (optional)
 
 ```bash
 python api.py [port]  # Default port: 5000
@@ -33,25 +39,18 @@ python cli.py parts get ESP-MTR-001
 python cli.py assemblies get ASM-MTR-001
 ```
 
-### MCP Server
+## MCP Tools
 
-```bash
-# stdio transport
-python run_mcp.py
-
-# SSE transport on port 8080
-python run_mcp.py --port 8080
-```
-
-## API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/esp/<id>` | Full ESP with assemblies and parts |
-| `GET /api/esp/<id>/bom` | Flat BOM parts list |
-| `GET /api/esp/<id>/summary` | BOM summary (counts, weights) |
-| `GET /api/parts/<pn>` | Single part details |
-| `GET /api/assemblies/<code>` | Assembly with nested parts |
+| Tool | Description |
+|------|-------------|
+| `list_esps` | List all ESP pump models |
+| `get_esp` | Get complete ESP with assemblies and parts |
+| `get_esp_bom` | Get flat BOM parts list for an ESP |
+| `get_bom_summary` | Get BOM summary (weight, counts, critical) |
+| `get_parts_by_category` | Filter parts by category |
+| `get_critical_parts` | List all critical parts |
+| `get_assembly` | Get assembly with its parts |
+| And more... |
 
 ## Data Model
 
@@ -64,37 +63,24 @@ python run_mcp.py --port 8080
 ### Local Development
 
 ```bash
-# Build and run
+# Build and run MCP server on port 8080
 docker-compose up --build
 
-# API available at http://localhost:5000
+# MCP server available at http://localhost:8080
 ```
 
 ### Google Cloud Run Deployment
 
-1. **Build the container:**
-   ```bash
-   gcloud builds submit --tag gcr.io/PROJECT_ID/bom-mcp
-   ```
+```bash
+# Deploy directly from source
+gcloud run deploy bom-mcp \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
 
-2. **Deploy to Cloud Run:**
-   ```bash
-   gcloud run deploy bom-mcp \
-     --image gcr.io/PROJECT_ID/bom-mcp \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --port 8080
-   ```
-
-   Or deploy directly from source:
-   ```bash
-   gcloud run deploy bom-mcp \
-     --source . \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated
-   ```
+The MCP server will be available at your Cloud Run URL.
 
 ## License
 
