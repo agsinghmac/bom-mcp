@@ -428,6 +428,22 @@ def remove_part_from_assembly(assembly_code: str, part_number: str) -> dict | No
 
 
 @mcp.tool
+def update_assembly_part_quantity(assembly_code: str, part_number: str, quantity: int) -> dict | None:
+    """Update the quantity of a part in an assembly's BOM.
+
+    Args:
+        assembly_code: Target assembly
+        part_number: Part to update
+        quantity: New quantity (must be a positive integer)
+    """
+    with get_db() as db:
+        try:
+            return db.update_assembly_part_quantity(assembly_code, part_number, quantity)
+        except ValueError as e:
+            return {"error": str(e)}
+
+
+@mcp.tool
 def get_assembly_esps(assembly_code: str) -> list[dict]:
     """Find all ESPs that use a specific assembly.
 
