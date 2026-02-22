@@ -59,6 +59,43 @@ python run_mcp.py --port 8080
 - **Assemblies**: Groups of parts
 - **ESP Units**: Top-level pumps linking assemblies
 
+## Docker
+
+### Local Development
+
+```bash
+# Build and run
+docker-compose up --build
+
+# API available at http://localhost:5000
+```
+
+### Google Cloud Run Deployment
+
+1. **Build the container:**
+   ```bash
+   gcloud builds submit --tag gcr.io/PROJECT_ID/bom-mcp
+   ```
+
+2. **Deploy to Cloud Run:**
+   ```bash
+   gcloud run deploy bom-mcp \
+     --image gcr.io/PROJECT_ID/bom-mcp \
+     --platform managed \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --port 8080
+   ```
+
+   Or deploy directly from source:
+   ```bash
+   gcloud run deploy bom-mcp \
+     --source . \
+     --platform managed \
+     --region us-central1 \
+     --allow-unauthenticated
+   ```
+
 ## License
 
 MIT
