@@ -22,6 +22,9 @@ python cli.py esp bom ESP-001
 python cli.py parts get ESP-MTR-001
 python cli.py assemblies get ASM-MTR-001
 
+# Update part quantities in BOMs
+python cli.py assemblies update-quantity ASM-MTR-002 ESP-SEL-001 5
+
 # Run MCP server (stdio transport)
 python run_mcp.py
 
@@ -51,7 +54,8 @@ python cli.py --help
 ## Data Model
 
 - **Parts**: Individual components with part_number, name, category, material, weight, critical flag
-- **Assemblies**: Groups of parts (e.g., "Main Motor Assembly")
+- **Assemblies**: Groups of parts with quantities (e.g., "Main Motor Assembly")
+  - Each part in an assembly has a `quantity` field that can be updated
 - **ESP Units**: Top-level pumps linking assemblies (10 sample models across 5 series)
 
 ## Key Endpoints
@@ -63,6 +67,7 @@ python cli.py --help
 | `GET /api/esp/<id>/summary` | BOM summary (counts, weights) |
 | `GET /api/parts/<pn>` | Single part details |
 | `GET /api/assemblies/<code>` | Assembly with nested parts |
+| `PUT /api/assemblies/<code>/parts/<pn>/quantity` | Update part quantity in assembly |
 
 ## MCP Tools
 
@@ -80,6 +85,7 @@ python cli.py --help
 | `get_critical_parts` | List all critical parts |
 | `list_assemblies` | List all assemblies |
 | `get_assembly` | Get assembly with its parts |
+| `update_assembly_part_quantity` | Update quantity of a part in an assembly |
 | `get_stats` | Get database statistics |
 
 Plus full CRUD tools for creating, updating, and deleting ESPs, parts, and assemblies.
