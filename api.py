@@ -268,6 +268,34 @@ def remove_part_from_assembly(assembly_code: str, part_number: str):
     return jsonify({"error": f"Assembly {assembly_code} not found"}), 404
 
 
+@app.route("/api/assemblies/<assembly_code>/parts/<part_number>/quantity", methods=["PUT"])
+def update_assembly_part_quantity(assembly_code: str, part_number: str):
+    """Update the quantity of a part in an assembly's BOM.
+    
+    Request body:
+    {
+        "quantity": 5
+    }
+    """
+    data = request.get_json()
+    if not data or "quantity" not in data:
+        return jsonify({"error": "Quantity field required"}), 400
+    
+    try:
+        quantity = int(data["quantity"])
+    except (ValueError, TypeError):
+        return jsonify({"error": "Quantity must be an integer"}), 400
+    
+    db = get_db()
+    try:
+        assembly = db.update_assembly_part_quantity(assembly_code, part_number, quantity)
+        if assembly:
+            return jsonify({"assembly": assembly, "message": f"Quantity updated to {quantity}"})
+        return jsonify({"error": f"Assembly {assembly_code} or part {part_number} not found in assembly"}), 404
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/api/assemblies/<assembly_code>/esps", methods=["GET"])
 def get_assembly_esps(assembly_code: str):
     """Find all ESPs that use a specific assembly."""

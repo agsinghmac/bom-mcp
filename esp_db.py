@@ -302,7 +302,7 @@ class ESPDatabase:
 
         # Get parts for this assembly
         cursor.execute("""
-            SELECT p.* FROM parts p
+            SELECT p.*, ap.quantity, ap.bom_level FROM parts p
             JOIN assembly_parts ap ON p.part_number = ap.part_number
             WHERE ap.assembly_code = ?
             ORDER BY p.category, p.part_number
@@ -319,7 +319,7 @@ class ESPDatabase:
         for row in cursor.fetchall():
             assembly = dict(row)
             cursor.execute("""
-                SELECT p.* FROM parts p
+                SELECT p.*, ap.quantity, ap.bom_level FROM parts p
                 JOIN assembly_parts ap ON p.part_number = ap.part_number
                 WHERE ap.assembly_code = ?
             """, (assembly["assembly_code"],))
@@ -808,6 +808,53 @@ class ESPDatabase:
             DELETE FROM assembly_parts
             WHERE assembly_code = ? AND part_number = ?
         """, (assembly_code, part_number))
+        self.conn.commit()
+        # If the database is empty, populate sample data
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM parts")
+        if cursor.fetchone()[0] == 0:
+            self.populate_sample_data()
+
+        return self.get_assembly(assembly_code)
+
+    def update_assembly_part_quantity(self, assembly_code: str, part_number: str, quantity: int) -> Optional[dict]:
+        """Update the quantity of a part in an assembly's BOM.
+
+        Args:
+            assembly_code: Target assembly
+            part_number: Part to update
+            quantity: New quantity value (must be positive integer)
+
+        Returns:
+            Updated assembly, or None if assembly or part not found in assembly
+
+        Raises:
+            ValueError: If quantity is not a positive integer
+        """
+        if not isinstance(quantity, int) or quantity < 1:
+            raise ValueError("Quantity must be a positive integer")
+
+        cursor = self.conn.cursor()
+
+        # Verify assembly exists
+        cursor.execute("SELECT 1 FROM assemblies WHERE assembly_code = ?", (assembly_code,))
+        if not cursor.fetchone():
+            return None
+
+        # Check if part is in assembly
+        cursor.execute("""
+            SELECT 1 FROM assembly_parts
+            WHERE assembly_code = ? AND part_number = ?
+        """, (assembly_code, part_number))
+        if not cursor.fetchone():
+            return None
+
+        # Update the quantity
+        cursor.execute("""
+            UPDATE assembly_parts
+            SET quantity = ?
+            WHERE assembly_code = ? AND part_number = ?
+        """, (quantity, assembly_code, part_number))
         self.conn.commit()
         # If the database is empty, populate sample data
         cursor = self.conn.cursor()

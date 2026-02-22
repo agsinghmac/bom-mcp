@@ -245,6 +245,21 @@ def cmd_remove_part_from_assembly(args):
             sys.exit(1)
 
 
+def cmd_update_part_quantity(args):
+    """Update the quantity of a part in an assembly."""
+    with init_database() as db:
+        try:
+            assembly = db.update_assembly_part_quantity(args.assembly_code, args.part_number, args.quantity)
+            if assembly:
+                print_json({"assembly": assembly, "message": f"Quantity updated to {args.quantity}"})
+            else:
+                print(f"Assembly {args.assembly_code} or part {args.part_number} not found in assembly", file=sys.stderr)
+                sys.exit(1)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+
 def cmd_add_assembly_to_esp(args):
     """Add an assembly to an ESP."""
     with init_database() as db:
@@ -411,6 +426,12 @@ def main():
     p.add_argument("assembly_code", help="Target assembly")
     p.add_argument("part_number", help="Part number to remove")
     p.set_defaults(cmd=cmd_remove_part_from_assembly)
+
+    p = asm_sub.add_parser("update-quantity", help="Update the quantity of a part in an assembly")
+    p.add_argument("assembly_code", help="Target assembly")
+    p.add_argument("part_number", help="Part number to update")
+    p.add_argument("quantity", type=int, help="New quantity value")
+    p.set_defaults(cmd=cmd_update_part_quantity)
 
     # Stats command
     p = subparsers.add_parser("stats", help="Show database statistics")
