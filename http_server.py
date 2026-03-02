@@ -190,23 +190,88 @@ def create_app():
                 with get_db() as db:
                     # Map tool names to database methods
                     tool_map = {
+                        # ESP tools
                         'list_esps': lambda: db.get_all_esps(),
                         'get_esp': lambda: db.get_esp(tool_args.get('esp_id')),
                         'get_esp_bom': lambda: db.get_esp_bom_parts(tool_args.get('esp_id')),
                         'get_bom_summary': lambda: db.get_bom_summary(tool_args.get('esp_id')),
+                        'get_esps_by_series': lambda: db.get_esps_by_series(tool_args.get('series')),
+                        'create_esp': lambda: db.create_esp(
+                            esp_id=tool_args.get('esp_id'),
+                            model_name=tool_args.get('model_name'),
+                            series=tool_args.get('series'),
+                            power_rating_kw=float(tool_args.get('power_rating_kw', 0)),
+                            voltage_v=int(tool_args.get('voltage_v', 0)),
+                            frequency_hz=float(tool_args.get('frequency_hz', 0)),
+                            flow_rate_m3d=float(tool_args.get('flow_rate_m3d', 0)),
+                            stages=int(tool_args.get('stages', 0)),
+                            cable_length_m=float(tool_args.get('cable_length_m', 0)),
+                        ),
+                        'delete_esp': lambda: db.delete_esp(tool_args.get('esp_id')),
+                        # Parts tools
                         'list_parts': lambda: db.get_all_parts(),
                         'get_part': lambda: db.get_part(tool_args.get('part_number')),
                         'search_parts': lambda: db.search_parts(tool_args.get('query')),
                         'get_parts_by_category': lambda: db.get_parts_by_category(tool_args.get('category')),
                         'get_critical_parts': lambda: db.get_critical_parts(),
+                        'get_part_assemblies': lambda: db.get_assemblies_using_part(tool_args.get('part_number')),
+                        'create_part': lambda: db.create_part(
+                            part_number=tool_args.get('part_number'),
+                            name=tool_args.get('name'),
+                            category=tool_args.get('category'),
+                            material=tool_args.get('material'),
+                            weight_kg=float(tool_args.get('weight_kg', 0)),
+                            is_critical=tool_args.get('is_critical', False),
+                        ),
+                        'update_part': lambda: db.update_part(
+                            part_number=tool_args.get('part_number'),
+                            name=tool_args.get('name'),
+                            category=tool_args.get('category'),
+                            material=tool_args.get('material'),
+                            weight_kg=float(tool_args.get('weight_kg', 0)) if tool_args.get('weight_kg') else None,
+                            is_critical=tool_args.get('is_critical'),
+                        ),
+                        'delete_part': lambda: db.delete_part(tool_args.get('part_number')),
+                        # Assembly tools
                         'list_assemblies': lambda: db.get_all_assemblies(),
                         'get_assembly': lambda: db.get_assembly(tool_args.get('assembly_code')),
+                        'get_assembly_esps': lambda: db.get_esps_using_assembly(tool_args.get('assembly_code')),
+                        'create_assembly': lambda: db.create_assembly(
+                            assembly_code=tool_args.get('assembly_code'),
+                            name=tool_args.get('name'),
+                        ),
+                        'delete_assembly': lambda: db.delete_assembly(tool_args.get('assembly_code')),
+                        'add_part_to_assembly': lambda: db.add_part_to_assembly(
+                            tool_args.get('assembly_code'),
+                            tool_args.get('part_number'),
+                        ),
+                        'remove_part_from_assembly': lambda: db.remove_part_from_assembly(
+                            tool_args.get('assembly_code'),
+                            tool_args.get('part_number'),
+                        ),
+                        'update_assembly_part_quantity': lambda: db.update_assembly_part_quantity(
+                            tool_args.get('assembly_code'),
+                            tool_args.get('part_number'),
+                            int(tool_args.get('quantity', 1)),
+                        ),
+                        # Stats tool
                         'get_stats': lambda: {
                             "total_esps": len(db.get_all_esps()),
                             "total_parts": len(db.get_all_parts()),
                             "total_assemblies": len(db.get_all_assemblies()),
                             "critical_parts": len(db.get_critical_parts()),
                         },
+                        # View tools (for MCP Apps UI)
+                        'view_dashboard': lambda: {
+                            "total_esps": len(db.get_all_esps()),
+                            "total_parts": len(db.get_all_parts()),
+                            "total_assemblies": len(db.get_all_assemblies()),
+                            "critical_parts": len(db.get_critical_parts()),
+                        },
+                        'view_esp_catalogue': lambda: db.get_all_esps(),
+                        'view_esp_bom': lambda: db.get_esp_bom_parts(tool_args.get('esp_id')),
+                        'manage_parts': lambda: db.get_all_parts(),
+                        'manage_assemblies': lambda: db.get_all_assemblies(),
                     }
 
                     if tool_name in tool_map:
