@@ -156,6 +156,10 @@ def create_app():
                     }
                 })
 
+            elif method == 'notifications/initialized':
+                # Handle MCP lifecycle notification (no response needed)
+                return jsonify({"jsonrpc": "2.0", "id": jsonrpc_id, "result": {}})
+
             elif method == 'tools/list':
                 # Return list of available tools
                 tools = [
@@ -296,6 +300,25 @@ def create_app():
         if resource_name in html_contents:
             return html_contents[resource_name], 200, {'Content-Type': 'text/html'}
         return "Not found", 404
+
+    # SSE endpoint for MCP streaming responses
+    @app.route('/mcp', methods=['GET'])
+    def mcp_sse_endpoint():
+        """Handle MCP SSE transport - returns Server-Sent Events."""
+        from flask import Response
+
+        def generate():
+            # Send initial connection message
+            yield "event: initialized\ndata: {}\n\n"
+
+        return Response(
+            generate(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no'
+            }
+        )
 
     return app
 
