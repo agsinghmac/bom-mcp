@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parts Manager</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #1a1a2e);
+      --color-bg-secondary: var(--color-bg-secondary, #16213e);
+      --color-border: var(--color-border, #2d3748);
+      --color-text: var(--color-text-primary, #e2e8f0);
+      --color-text-secondary: var(--color-text-secondary, #a0aec0);
+      --color-accent: var(--color-accent, #3b82f6);
+      --color-critical: #ef4444;
+      --color-assembly: #22c55e;
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 700; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .btn-primary { background: var(--color-accent); color: white; }
+    .btn-danger { background: var(--color-critical); color: white; }
+    .btn-secondary { background: var(--color-bg-secondary); color: var(--color-text); border: 1px solid var(--color-border); }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"], input[type="number"], select {
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-bg-secondary);
+      color: var(--color-text);
+      font-size: 0.875rem;
+    }
+
+    .search-box { flex: 1; min-width: 200px; }
+
+    .critical-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .critical-toggle input { width: auto; }
+
+    .table-container {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    th {
+      background: var(--color-bg-secondary);
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--color-bg-secondary); }
+
+    tr.critical {
+      border-left: 3px solid var(--color-critical);
+    }
+
+    .part-number {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+      color: var(--color-accent);
+    }
+
+    .category-badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+    }
+
+    .critical-badge {
+      background: var(--color-critical);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .actions { display: flex; gap: 4px; }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    .expanded-row { display: none; }
+    .expanded-row td { padding: 0; }
+    .expanded-content {
+      padding: 12px 16px;
+      background: var(--color-bg);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .assemblies-list {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .assemblies-list span {
+      background: var(--color-assembly);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 4px; }
+    .form-group input, .form-group select { width: 100%; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--color-border);
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider { background: var(--color-critical); }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>Parts Manager</h1>
+      <button class="btn btn-primary" id="btn-create">+ Create Part</button>
+    </div>
+
+    <div class="filters">
+      <input type="text" class="search-box" id="search" placeholder="Search parts...">
+      <select id="filter-category">
+        <option value="">All Categories</option>
+        <option value="Motor">Motor</option>
+        <option value="Pump">Pump</option>
+        <option value="Seal">Seal</option>
+        <option value="Cable">Cable</option>
+        <option value="Sensor">Sensor</option>
+        <option value="Fitting">Fitting</option>
+        <option value="Bearing">Bearing</option>
+        <option value="Valve">Valve</option>
+      </select>
+      <label class="critical-toggle">
+        <input type="checkbox" id="critical-only"> Critical Only
+      </label>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Part Number</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Material</th>
+            <th>Weight (kg)</th>
+            <th>Critical</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="8" class="loading">Loading parts...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create/Edit Part Modal -->
+  <div class="modal-overlay" id="modal-part">
+    <div class="modal">
+      <h2 id="modal-title">Create Part</h2>
+      <form id="form-part">
+        <input type="hidden" name="part_number" id="edit-part-number">
+        <div class="form-group">
+          <label>Part Number *</label>
+          <input type="text" name="part_number_new" id="input-part-number" placeholder="ESP-XXX-000">
+        </div>
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" name="name" required>
+        </div>
+        <div class="form-group">
+          <label>Category *</label>
+          <select name="category" required>
+            <option value="">Select Category</option>
+            <option value="Motor">Motor</option>
+            <option value="Pump">Pump</option>
+            <option value="Seal">Seal</option>
+            <option value="Cable">Cable</option>
+            <option value="Sensor">Sensor</option>
+            <option value="Fitting">Fitting</option>
+            <option value="Bearing">Bearing</option>
+            <option value="Valve">Valve</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Material *</label>
+          <input type="text" name="material" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Weight (kg) *</label>
+            <input type="number" name="weight_kg" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Critical</label>
+            <label class="toggle-switch">
+              <input type="checkbox" name="is_critical">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-part">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-part">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="modal-delete">
+    <div class="modal">
+      <h2>Delete Part</h2>
+      <p>Delete <strong id="delete-part-number"></strong>?</p>
+      <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin: 8px 0;">This will remove the part from all assemblies.</p>
+      <label style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+        <input type="checkbox" id="force-delete"> Force delete (ignore assembly dependencies)
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'Parts Manager', version: '1.0.0' });
+
+    let allParts = [];
+    let searchQuery = '';
+    let categoryFilter = '';
+    let criticalOnly = false;
+    let pendingDeletePart = null;
+    let expandedParts = new Set();
+    let editMode = false;
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      const toolName = result?._meta?.toolName;
+
+      if (toolName === 'list_parts' || toolName === 'search_parts' || toolName === 'get_parts_by_category' || toolName === 'get_critical_parts') {
+        if (Array.isArray(data) && data.length > 0 && data[0]?.part_number) {
+          allParts = data;
+          render();
+        }
+      } else if (toolName === 'get_part_assemblies') {
+        const partNumber = result?._meta?.arguments?.part_number;
+        if (partNumber && Array.isArray(data)) {
+          renderExpandedRow(partNumber, data);
+        }
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    app.callTool('list_parts', {});
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      let filtered = allParts;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(p =>
+          p.part_number?.toLowerCase().includes(q) ||
+          p.name?.toLowerCase().includes(q) ||
+          p.material?.toLowerCase().includes(q)
+        );
+      }
+
+      if (categoryFilter) {
+        filtered = filtered.filter(p => p.category === categoryFilter);
+      }
+
+      if (criticalOnly) {
+        filtered = filtered.filter(p => p.is_critical);
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">No parts found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(p => `
+        <tr class="${p.is_critical ? 'critical' : ''}" data-part="${p.part_number}">
+          <td style="width: 30px;">
+            <button class="btn btn-sm btn-secondary expand-btn" data-expand="${p.part_number}">${expandedParts.has(p.part_number) ? '−' : '+'}</button>
+          </td>
+          <td><span class="part-number">${p.part_number}</span></td>
+          <td>${p.name}</td>
+          <td><span class="category-badge">${p.category}</span></td>
+          <td>${p.material}</td>
+          <td>${p.weight_kg?.toFixed(2) || '-'}</td>
+          <td>${p.is_critical ? '<span class="critical-badge">Critical</span>' : '-'}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-sm btn-primary" data-edit="${p.part_number}">Edit</button>
+              <button class="btn btn-sm btn-danger" data-delete="${p.part_number}">Delete</button>
+            </div>
+          </td>
+        </tr>
+        <tr class="expanded-row" id="expanded-${p.part_number}">
+          <td colspan="8"><div class="expanded-content" id="content-${p.part_number}">Loading...</div></td>
+        </tr>
+      `).join('');
+
+      // Event listeners
+      tbody.querySelectorAll('[data-expand]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const partNumber = btn.dataset.expand;
+          if (expandedParts.has(partNumber)) {
+            expandedParts.delete(partNumber);
+          } else {
+            expandedParts.add(partNumber);
+            app.callTool('get_part_assemblies', { part_number: partNumber });
+          }
+          render();
+        });
+      });
+
+      tbody.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(btn.dataset.edit));
+      });
+
+      tbody.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', () => openDeleteModal(btn.dataset.delete));
+      });
+    }
+
+    function renderExpandedRow(partNumber, assemblies) {
+      const content = document.getElementById(`content-${partNumber}`);
+      if (!content) return;
+
+      if (!assemblies || assemblies.length === 0) {
+        content.innerHTML = '<div class="assemblies-list">Not used in any assemblies</div>';
+      } else {
+        content.innerHTML = '<div class="assemblies-list">Used in assemblies: ' + assemblies.map(a => `<span>${a.assembly_code}</span>`).join('') + '</div>';
+      }
+    }
+
+    function openEditModal(partNumber) {
+      editMode = true;
+      const part = allParts.find(p => p.part_number === partNumber);
+      if (!part) return;
+
+      document.getElementById('modal-title').textContent = 'Edit Part';
+      document.getElementById('edit-part-number').value = partNumber;
+      document.getElementById('input-part-number').value = part.part_number;
+      document.getElementById('input-part-number').disabled = true;
+      document.getElementById('form-part').name.value = part.name;
+      document.getElementById('form-part').category.value = part.category;
+      document.getElementById('form-part').material.value = part.material;
+      document.getElementById('form-part').weight_kg.value = part.weight_kg;
+      document.getElementById('form-part').is_critical.checked = part.is_critical;
+
+      document.getElementById('modal-part').classList.add('active');
+    }
+
+    function openDeleteModal(partNumber) {
+      pendingDeletePart = partNumber;
+      document.getElementById('delete-part-number').textContent = partNumber;
+      document.getElementById('modal-delete').classList.add('active');
+    }
+
+    // Search
+    document.getElementById('search').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      render();
+    });
+
+    // Filters
+    document.getElementById('filter-category').addEventListener('change', (e) => {
+      categoryFilter = e.target.value;
+      render();
+    });
+
+    document.getElementById('critical-only').addEventListener('change', (e) => {
+      criticalOnly = e.target.checked;
+      render();
+    });
+
+    // Create button
+    document.getElementById('btn-create').addEventListener('click', () => {
+      editMode = false;
+      document.getElementById('modal-title').textContent = 'Create Part';
+      document.getElementById('edit-part-number').value = '';
+      document.getElementById('input-part-number').value = '';
+      document.getElementById('input-part-number').disabled = false;
+      document.getElementById('form-part').reset();
+      document.getElementById('modal-part').classList.add('active');
+    });
+
+    document.getElementById('btn-cancel-part').addEventListener('click', () => {
+      document.getElementById('modal-part').classList.remove('active');
+    });
+
+    // Save part
+    document.getElementById('form-part').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        name: form.name.value,
+        category: form.category.value,
+        material: form.material.value,
+        weight_kg: parseFloat(form.weight_kg.value),
+        is_critical: form.is_critical.checked
+      };
+
+      if (editMode) {
+        const partNumber = document.getElementById('edit-part-number').value;
+        await app.callTool('update_part', { part_number: partNumber, ...data });
+      } else {
+        data.part_number = form.part_number_new.value;
+        await app.callTool('create_part', data);
+      }
+
+      document.getElementById('modal-part').classList.remove('active');
+      app.callTool('list_parts', {});
+    });
+
+    // Delete
+    document.getElementById('btn-cancel-delete').addEventListener('click', () => {
+      document.getElementById('modal-delete').classList.remove('active');
+      pendingDeletePart = null;
+    });
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+      if (pendingDeletePart) {
+        const force = document.getElementById('force-delete').checked;
+        await app.callTool('delete_part', { part_number: pendingDeletePart, force });
+        document.getElementById('modal-delete').classList.remove('active');
+        document.getElementById('force-delete').checked = false;
+        pendingDeletePart = null;
+        app.callTool('list_parts', {});
+      }
+    });
+  </script>
+</body>
+</html>

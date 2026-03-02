@@ -1,0 +1,20 @@
+# Python MCP Server
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
+# Copy application code
+COPY esp_db.py api.py cli.py run_mcp.py mcp_server.py ./
+
+# Create database directory
+RUN mkdir -p /app/data
+
+# Expose port 3001 for MCP server with HTTP transport
+EXPOSE 3001
+
+# Run MCP server with HTTP transport (for Node.js wrapper to call)
+CMD ["gunicorn", "--bind", "0.0.0.0:3001", "--workers", "2", "run_mcp:app"]

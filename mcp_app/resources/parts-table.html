@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parts Table</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #ffffff);
+      --color-bg-secondary: var(--color-bg-secondary, #f8f9fa);
+      --color-border: var(--color-border, #e1e4e8);
+      --color-text: var(--color-text-primary, #24292e);
+      --color-text-secondary: var(--color-text-secondary, #586069);
+      --color-accent: var(--color-accent, #0366d6);
+      --color-critical: var(--color-critical, #d73a49);
+      --radius: var(--radius-md, 8px);
+      --shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h2 { font-size: 1.25rem; font-weight: 600; }
+
+    .count-badge {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 0.875rem;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+      background: var(--color-bg);
+    }
+
+    .search-box:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+    }
+
+    .table-container {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    th {
+      background: var(--color-bg-secondary);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover { background: var(--color-border); }
+
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--color-bg-secondary); }
+
+    .part-number {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+      color: var(--color-accent);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .part-number:hover { text-decoration: underline; }
+
+    .critical-badge {
+      display: inline-block;
+      background: var(--color-critical);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h2>Parts Inventory</h2>
+      <span class="count-badge" id="count">0 parts</span>
+    </div>
+
+    <input type="text" class="search-box" id="search" placeholder="Search parts...">
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="part_number">Part #</th>
+            <th data-sort="name">Name</th>
+            <th data-sort="category">Category</th>
+            <th data-sort="material">Material</th>
+            <th data-sort="weight_kg">Weight (kg)</th>
+            <th data-sort="is_critical">Critical</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="loading">Loading parts...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'Parts Table', version: '1.0.0' });
+
+    let allParts = [];
+    let sortCol = 'part_number';
+    let sortDir = 'asc';
+
+    // Handle host context (theming, safe area)
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    // Handle tool result - render parts
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      if (Array.isArray(data)) {
+        allParts = data;
+        render();
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      const search = document.getElementById('search').value.toLowerCase();
+
+      let filtered = allParts;
+      if (search) {
+        filtered = allParts.filter(p =>
+          p.part_number?.toLowerCase().includes(search) ||
+          p.name?.toLowerCase().includes(search) ||
+          p.category?.toLowerCase().includes(search) ||
+          p.material?.toLowerCase().includes(search)
+        );
+      }
+
+      // Sort
+      filtered.sort((a, b) => {
+        let av = a[sortCol], bv = b[sortCol];
+        if (typeof av === 'boolean') { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+        else if (typeof av !== 'number') { av = String(av || '').toLowerCase(); bv = String(bv || '').toLowerCase(); }
+        if (av < bv) return sortDir === 'asc' ? -1 : 1;
+        if (av > bv) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Update count
+      document.getElementById('count').textContent = `${filtered.length} part${filtered.length !== 1 ? 's' : ''}`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No parts found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(p => `
+        <tr>
+          <td><a href="#" class="part-number" data-part="${p.part_number}">${p.part_number}</a></td>
+          <td>${p.name || '-'}</td>
+          <td>${p.category || '-'}</td>
+          <td>${p.material || '-'}</td>
+          <td>${p.weight_kg ? p.weight_kg.toFixed(2) : '-'}</td>
+          <td>${p.is_critical ? '<span class="critical-badge">Critical</span>' : '-'}</td>
+        </tr>
+      `).join('');
+
+      // Click handlers
+      tbody.querySelectorAll('.part-number').forEach(a => {
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          app.callTool('get_part', { part_number: e.target.dataset.part });
+        });
+      });
+
+      // Sort headers
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === sortCol) {
+          th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+      });
+    }
+
+    // Event listeners
+    document.getElementById('search').addEventListener('input', render);
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        if (sortCol === th.dataset.sort) {
+          sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortCol = th.dataset.sort;
+          sortDir = 'asc';
+        }
+        render();
+      });
+    });
+  </script>
+</body>
+</html>

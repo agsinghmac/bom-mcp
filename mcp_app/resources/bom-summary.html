@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BOM Summary</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #ffffff);
+      --color-bg-secondary: var(--color-bg-secondary, #f8f9fa);
+      --color-border: var(--color-border, #e1e4e8);
+      --color-text: var(--color-text-primary, #24292e);
+      --color-text-secondary: var(--color-text-secondary, #586069);
+      --color-accent: var(--color-accent, #0366d6);
+      --color-critical: var(--color-critical, #d73a49);
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 20px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 20px 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      margin-top: 4px;
+    }
+
+    .section {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .category-bars {
+      margin-top: 8px;
+    }
+
+    .category-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .category-label {
+      width: 100px;
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      flex-shrink: 0;
+    }
+
+    .bar-wrapper {
+      flex: 1;
+      margin: 0 16px;
+    }
+
+    .bar-bg {
+      height: 28px;
+      background: var(--color-bg-secondary);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-accent), #59aaf9);
+      border-radius: var(--radius);
+      transition: width 0.5s ease;
+    }
+
+    .bar-value {
+      width: 50px;
+      text-align: right;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .bar-percent {
+      width: 50px;
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="loading" class="loading">Loading BOM summary...</div>
+    <div id="content" style="display: none;">
+      <h2 id="title">BOM Summary</h2>
+
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-parts">0</div>
+          <div class="stat-label">Total Parts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-weight">0 kg</div>
+          <div class="stat-label">Total Weight</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-critical">0</div>
+          <div class="stat-label">Critical Parts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-assemblies">0</div>
+          <div class="stat-label">Assemblies</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Parts by Category</h3>
+        <div class="category-bars" id="category-count"></div>
+      </div>
+
+      <div class="section">
+        <h3>Weight by Category (kg)</h3>
+        <div class="category-bars" id="category-weight"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'BOM Summary', version: '1.0.0' });
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      if (data) {
+        renderSummary(data);
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    function renderSummary(summary) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      if (summary.esp_id) {
+        document.getElementById('title').textContent = `BOM Summary: ${summary.esp_id}`;
+      }
+
+      document.getElementById('stat-parts').textContent = summary.total_parts || 0;
+      document.getElementById('stat-weight').textContent = summary.total_weight ? summary.total_weight.toFixed(2) + ' kg' : '0 kg';
+      document.getElementById('stat-critical').textContent = summary.critical_count || 0;
+      document.getElementById('stat-assemblies').textContent = summary.assembly_count || 0;
+
+      if (summary.by_category && Array.isArray(summary.by_category)) {
+        renderCategoryBars('category-count', summary.by_category, 'count');
+        renderCategoryBars('category-weight', summary.by_category, 'weight');
+      }
+    }
+
+    function renderCategoryBars(containerId, categories, metric) {
+      const container = document.getElementById(containerId);
+      const maxCount = Math.max(...categories.map(c => c.count || 0), 1);
+      const maxWeight = Math.max(...categories.map(c => c.total_weight || 0), 1);
+
+      container.innerHTML = categories.map(cat => {
+        const count = cat.count || 0;
+        const weight = cat.total_weight || 0;
+        const countPercent = Math.round((count / maxCount) * 100);
+        const weightPercent = Math.round((weight / maxWeight) * 100);
+
+        if (metric === 'count') {
+          return `
+            <div class="category-row">
+              <span class="category-label">${cat.category}</span>
+              <div class="bar-wrapper">
+                <div class="bar-bg">
+                  <div class="bar-fill" style="width: ${countPercent}%"></div>
+                </div>
+              </div>
+              <span class="bar-value">${count}</span>
+              <span class="bar-percent">${countPercent}%</span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="category-row">
+              <span class="category-label">${cat.category}</span>
+              <div class="bar-wrapper">
+                <div class="bar-bg">
+                  <div class="bar-fill" style="width: ${weightPercent}%"></div>
+                </div>
+              </div>
+              <span class="bar-value">${weight.toFixed(1)}</span>
+              <span class="bar-percent">${weightPercent}%</span>
+            </div>
+          `;
+        }
+      }).join('');
+    }
+  </script>
+</body>
+</html>

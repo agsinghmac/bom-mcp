@@ -9,8 +9,11 @@ Electric Submersible Pump (ESP) Parts and Bill of Materials (BOM) database with 
 ## Commands
 
 ```bash
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install Node.js dependencies for MCP Apps UI
+cd mcp_app && npm install
 
 # Run the REST API server
 python api.py [port]  # Default port: 5000
@@ -22,11 +25,15 @@ python cli.py esp bom ESP-001
 python cli.py parts get ESP-MTR-001
 python cli.py assemblies get ASM-MTR-001
 
-# Run MCP server (stdio transport)
+# Run Python MCP server (stdio transport)
 python run_mcp.py
 
-# Run MCP server (SSE transport on port 8080)
-python run_mcp.py --port 8080
+# Run Python MCP server (HTTP transport on port 3001)
+python run_mcp.py --port 3001
+
+# Run MCP Apps UI server (wraps Python server)
+cd mcp_app && npm run serve
+# Or with custom port: PORT=8081 npm run serve
 
 # Get help
 python cli.py --help
@@ -47,6 +54,30 @@ python cli.py --help
 
 - `mcp_server.py` - FastMCP server providing tools for AI assistants
   - Run `python run_mcp.py` to start
+
+- `mcp_app/` - Node.js MCP Apps UI layer
+  - TypeScript server that wraps the Python MCP server
+  - Provides 5 interactive UI views for Claude Desktop/Claude.ai
+  - Resources in `mcp_app/resources/`
+
+## MCP Apps UI Views
+
+Five interactive views render inside Claude Desktop/Claude.ai:
+
+| View | Tool | Description |
+|------|------|-------------|
+| Dashboard | `view_dashboard` | Stats tiles, critical parts alert, series summary |
+| ESP Catalogue | `view_esp_catalogue` | ESP cards with filter, create, delete |
+| BOM Viewer | `view_esp_bom` | BOM table with sorting, CSV export |
+| Parts Manager | `manage_parts` | Parts table with search, filters, CRUD |
+| Assembly Manager | `manage_assemblies` | Assembly cards with parts management |
+
+Trigger views by asking:
+- "Show me the ESP dashboard"
+- "Show ESP catalogue"
+- "Show BOM for ESP-001"
+- "Manage parts"
+- "Manage assemblies"
 
 ## Data Model
 

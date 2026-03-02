@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Part Detail</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #ffffff);
+      --color-bg-secondary: var(--color-bg-secondary, #f8f9fa);
+      --color-border: var(--color-border, #e1e4e8);
+      --color-text: var(--color-text-primary, #24292e);
+      --color-text-secondary: var(--color-text-secondary, #586069);
+      --color-accent: var(--color-accent, #0366d6);
+      --color-critical: var(--color-critical, #d73a49);
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    h2 { font-size: 1.25rem; font-weight: 600; }
+
+    .back-link {
+      color: var(--color-accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+
+    .back-link:hover { text-decoration: underline; }
+
+    .properties {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .prop-card {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .prop-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .prop-value {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .prop-value.mono {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+    }
+
+    .critical-badge {
+      display: inline-block;
+      background: var(--color-critical);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 24px 0 12px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .assemblies-table {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .assemblies-table table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .assemblies-table th {
+      background: var(--color-bg-secondary);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .assemblies-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .assemblies-table tr:last-child td { border-bottom: none; }
+    .assemblies-table tr:hover { background: var(--color-bg-secondary); }
+
+    .assembly-link {
+      color: var(--color-accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    .error {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-critical);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="loading" class="loading">Loading part details...</div>
+    <div id="content" style="display: none;">
+      <div class="header">
+        <h2 id="title">Part Details</h2>
+        <a href="#" class="back-link" id="back-btn">← Back to list</a>
+      </div>
+
+      <div class="properties" id="props"></div>
+
+      <div id="assemblies-section" style="display: none;">
+        <h3>Used in Assemblies</h3>
+        <div class="assemblies-table">
+          <table>
+            <thead>
+              <tr><th>Assembly</th><th>Name</th></tr>
+            </thead>
+            <tbody id="assemblies-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="error" class="error" style="display: none;">
+      Part not found
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'Part Detail', version: '1.0.0' });
+
+    let currentPart = null;
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = async (result) => {
+      const data = result?.data || result;
+      if (data?.part_number) {
+        currentPart = data;
+        renderPart(data);
+
+        // Fetch assemblies that use this part
+        try {
+          const asmResult = await app.callTool('get_part_assemblies', { part_number: data.part_number });
+          if (asmResult?.data?.length > 0) {
+            renderAssemblies(asmResult.data);
+          }
+        } catch (e) {
+          console.log('Could not fetch assemblies');
+        }
+      } else {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    function renderPart(part) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      document.getElementById('title').textContent = part.name || part.part_number;
+
+      const props = document.getElementById('props');
+      props.innerHTML = `
+        <div class="prop-card">
+          <div class="prop-label">Part Number</div>
+          <div class="prop-value mono">${part.part_number}</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-label">Name</div>
+          <div class="prop-value">${part.name || '-'}</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-label">Category</div>
+          <div class="prop-value">${part.category || '-'}</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-label">Material</div>
+          <div class="prop-value">${part.material || '-'}</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-label">Weight</div>
+          <div class="prop-value">${part.weight_kg ? part.weight_kg.toFixed(2) + ' kg' : '-'}</div>
+        </div>
+        <div class="prop-card">
+          <div class="prop-label">Critical</div>
+          <div class="prop-value">
+            ${part.is_critical
+              ? '<span class="critical-badge">Critical</span>'
+              : '<span style="color: var(--color-text-secondary);">No</span>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAssemblies(assemblies) {
+      const section = document.getElementById('assemblies-section');
+      section.style.display = 'block';
+      const tbody = document.getElementById('assemblies-body');
+      tbody.innerHTML = assemblies.map(a => `
+        <tr>
+          <td><a href="#" class="assembly-link" data-code="${a.code}">${a.code}</a></td>
+          <td>${a.name}</td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('.assembly-link').forEach(a => {
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          app.callTool('get_assembly', { assembly_code: e.target.dataset.code });
+        });
+      });
+    }
+
+    document.getElementById('back-btn').addEventListener('click', e => {
+      e.preventDefault();
+      app.callTool('list_parts');
+    });
+  </script>
+</body>
+</html>

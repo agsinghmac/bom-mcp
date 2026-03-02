@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assembly Manager</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #1a1a2e);
+      --color-bg-secondary: var(--color-bg-secondary, #16213e);
+      --color-border: var(--color-border, #2d3748);
+      --color-text: var(--color-text-primary, #e2e8f0);
+      --color-text-secondary: var(--color-text-secondary, #a0aec0);
+      --color-accent: var(--color-accent, #3b82f6);
+      --color-critical: #ef4444;
+      --color-assembly: #22c55e;
+      --color-esp: #3b82f6;
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 700; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .btn-primary { background: var(--color-accent); color: white; }
+    .btn-danger { background: var(--color-critical); color: white; }
+    .btn-secondary { background: var(--color-bg-secondary); color: var(--color-text); border: 1px solid var(--color-border); }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+
+    .assembly-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .assembly-card {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .assembly-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+
+    .assembly-header:hover { background: var(--color-border); }
+
+    .assembly-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .assembly-code {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+      color: var(--color-assembly);
+      font-weight: 600;
+    }
+
+    .assembly-name {
+      font-weight: 500;
+    }
+
+    .assembly-stats {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .esp-badge {
+      background: var(--color-esp);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      margin-left: 8px;
+    }
+
+    .expanded-content {
+      display: none;
+      border-top: 1px solid var(--color-border);
+      padding: 16px;
+    }
+
+    .assembly-card.expanded .expanded-content { display: block; }
+
+    .parts-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+    }
+
+    .parts-table th {
+      background: var(--color-bg);
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .parts-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .part-number {
+      font-family: var(--font-mono);
+      color: var(--color-accent);
+    }
+
+    .qty-input {
+      width: 60px;
+      padding: 4px 8px;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-bg);
+      color: var(--color-text);
+    }
+
+    .used-in-esps {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .used-in-esps span {
+      background: var(--color-esp);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 4px; }
+    .form-group input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); color: var(--color-text); }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+    .part-picker {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      margin-top: 8px;
+    }
+
+    .part-picker-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+    }
+
+    .part-picker-item:hover { background: var(--color-bg); }
+    .part-picker-item:last-child { border-bottom: none; }
+
+    .part-picker-item .part-num {
+      font-family: var(--font-mono);
+      color: var(--color-accent);
+    }
+
+    .empty { text-align: center; padding: 24px; color: var(--color-text-secondary); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>Assembly Manager</h1>
+      <button class="btn btn-primary" id="btn-create">+ Create Assembly</button>
+    </div>
+
+    <div class="assembly-list" id="assembly-list">
+      <div class="loading">Loading assemblies...</div>
+    </div>
+  </div>
+
+  <!-- Create Assembly Modal -->
+  <div class="modal-overlay" id="modal-create">
+    <div class="modal">
+      <h2>Create Assembly</h2>
+      <form id="form-create">
+        <div class="form-group">
+          <label>Assembly Code *</label>
+          <input type="text" name="assembly_code" placeholder="ASM-XXX-000" required>
+        </div>
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" name="name" placeholder="Main Motor Assembly" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Part Modal -->
+  <div class="modal-overlay" id="modal-add-part">
+    <div class="modal">
+      <h2>Add Part to Assembly</h2>
+      <div class="form-group">
+        <label>Search parts:</label>
+        <input type="text" id="part-search" placeholder="Search by name or number...">
+      </div>
+      <div class="part-picker" id="part-picker">
+        <div class="empty">Loading parts...</div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-add-part">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="modal-delete">
+    <div class="modal">
+      <h2>Delete Assembly</h2>
+      <p>Delete <strong id="delete-assembly-code"></strong>?</p>
+      <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin: 8px 0;">This will remove the assembly from all ESPs.</p>
+      <div id="delete-warning" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--color-critical); border-radius: var(--radius); padding: 12px; margin: 12px 0;">
+        <p style="color: var(--color-critical); font-weight: 600; margin-bottom: 4px;">Warning: Used in ESPs</p>
+        <p id="delete-esps-list" style="font-size: 0.8rem;"></p>
+      </div>
+      <label style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+        <input type="checkbox" id="force-delete"> Force delete (remove from all ESPs)
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'Assembly Manager', version: '1.0.0' });
+
+    let allAssemblies = [];
+    let expandedAssemblies = new Set();
+    let pendingDeleteCode = null;
+    let pendingAddPartCode = null;
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      const toolName = result?._meta?.toolName;
+
+      if (toolName === 'list_assemblies' || (Array.isArray(data) && data.length > 0 && data[0]?.assembly_code)) {
+        allAssemblies = data;
+        render();
+      } else if (toolName === 'get_assembly_esps' && data && data.length > 0) {
+        const code = result?._meta?.arguments?.assembly_code;
+        if (code) {
+          renderUsedInEsps(code, data);
+        }
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    app.callTool('list_assemblies', {});
+
+    function render() {
+      const list = document.getElementById('assembly-list');
+
+      if (allAssemblies.length === 0) {
+        list.innerHTML = '<div class="empty">No assemblies found</div>';
+        return;
+      }
+
+      list.innerHTML = allAssemblies.map(asm => {
+        const totalWeight = (asm.parts || []).reduce((sum, p) => sum + (p.weight_kg * (p.quantity || 1)), 0);
+        const isExpanded = expandedAssemblies.has(asm.assembly_code);
+
+        return `
+          <div class="assembly-card ${isExpanded ? 'expanded' : ''}" data-code="${asm.assembly_code}">
+            <div class="assembly-header" data-expand="${asm.assembly_code}">
+              <div class="assembly-info">
+                <span class="assembly-code">${asm.assembly_code}</span>
+                <span class="assembly-name">${asm.name}</span>
+                <span class="esp-badge" id="esp-badge-${asm.assembly_code}"></span>
+              </div>
+              <div class="assembly-stats">
+                ${(asm.parts || []).length} parts | ${totalWeight.toFixed(1)} kg
+                <span style="margin-left: 8px;">${isExpanded ? '−' : '+'}</span>
+              </div>
+            </div>
+            <div class="expanded-content" id="content-${asm.assembly_code}">
+              ${isExpanded ? getExpandedContent(asm) : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      list.querySelectorAll('[data-expand]').forEach(header => {
+        header.addEventListener('click', () => {
+          const code = header.dataset.expand;
+          if (expandedAssemblies.has(code)) {
+            expandedAssemblies.delete(code);
+          } else {
+            expandedAssemblies.add(code);
+            app.callTool('get_assembly_esps', { assembly_code: code });
+          }
+          render();
+        });
+      });
+
+      list.querySelectorAll('[data-delete-assembly]').forEach(btn => {
+        btn.addEventListener('click', () => openDeleteModal(btn.dataset.deleteAssembly));
+      });
+
+      list.querySelectorAll('[data-add-part]').forEach(btn => {
+        btn.addEventListener('click', () => openAddPartModal(btn.dataset.addPart));
+      });
+
+      list.querySelectorAll('[data-remove-part]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const { assembly_code, part_number } = btn.dataset;
+          await app.callTool('remove_part_from_assembly', { assembly_code, part_number });
+          app.callTool('list_assemblies', {});
+        });
+      });
+
+      list.querySelectorAll('.qty-input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+          const { assembly_code, part_number } = input.dataset;
+          const quantity = parseInt(e.target.value);
+          if (quantity > 0) {
+            await app.callTool('update_assembly_part_quantity', { assembly_code, part_number, quantity });
+            app.callTool('list_assemblies', {});
+          }
+        });
+      });
+    }
+
+    function getExpandedContent(asm) {
+      if (!asm.parts || asm.parts.length === 0) {
+        return `
+          <div class="empty">No parts in this assembly</div>
+          <button class="btn btn-sm btn-primary" data-add-part="${asm.assembly_code}">+ Add Part</button>
+        `;
+      }
+
+      return `
+        <table class="parts-table">
+          <thead>
+            <tr>
+              <th>Part Number</th>
+              <th>Name</th>
+              <th>Qty</th>
+              <th>Weight (kg)</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${asm.parts.map(p => `
+              <tr>
+                <td><span class="part-number">${p.part_number}</span></td>
+                <td>${p.name}</td>
+                <td><input type="number" class="qty-input" data-assembly_code="${asm.assembly_code}" data-part_number="${p.part_number}" value="${p.quantity || 1}" min="1"></td>
+                <td>${p.weight_kg?.toFixed(1) || '-'}</td>
+                <td><button class="btn btn-sm btn-danger" data-remove-part="" data-assembly_code="${asm.assembly_code}" data-part_number="${p.part_number}">Remove</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <button class="btn btn-sm btn-primary" data-add-part="${asm.assembly_code}">+ Add Part</button>
+        <div class="used-in-esps" id="used-in-${asm.assembly_code}">Loading...</div>
+      `;
+    }
+
+    function renderUsedInEsps(code, esps) {
+      const container = document.getElementById(`used-in-${code}`);
+      if (!container) return;
+
+      const badge = document.getElementById(`esp-badge-${code}`);
+      if (badge) {
+        badge.textContent = esps.length > 0 ? `${esps.length} ESP${esps.length > 1 ? 's' : ''}` : '';
+      }
+
+      if (!esps || esps.length === 0) {
+        container.innerHTML = 'Not used in any ESPs';
+      } else {
+        container.innerHTML = 'Used in: ' + esps.map(e => `<span>${e.esp_id}</span>`).join('');
+      }
+    }
+
+    async function openDeleteModal(code) {
+      pendingDeleteCode = code;
+      document.getElementById('delete-assembly-code').textContent = code;
+      const esps = await app.callTool('get_assembly_esps', { assembly_code: code });
+      const warning = document.getElementById('delete-warning');
+      if (esps && esps.length > 0) {
+        warning.style.display = 'block';
+        document.getElementById('delete-esps-list').textContent = esps.map(e => e.esp_id).join(', ');
+      } else {
+        warning.style.display = 'none';
+      }
+      document.getElementById('modal-delete').classList.add('active');
+    }
+
+    async function openAddPartModal(code) {
+      pendingAddPartCode = code;
+      const parts = await app.callTool('list_parts', {});
+      renderPartPicker(parts);
+      document.getElementById('modal-add-part').classList.add('active');
+    }
+
+    function renderPartPicker(parts) {
+      const picker = document.getElementById('part-picker');
+      if (!parts || parts.length === 0) {
+        picker.innerHTML = '<div class="empty">No parts available</div>';
+        return;
+      }
+
+      picker.innerHTML = parts.map(p => `
+        <div class="part-picker-item" data-part="${p.part_number}">
+          <span class="part-num">${p.part_number}</span>
+          <span>${p.name}</span>
+        </div>
+      `).join('');
+
+      picker.querySelectorAll('[data-part]').forEach(item => {
+        item.addEventListener('click', async () => {
+          const partNumber = item.dataset.part;
+          await app.callTool('add_part_to_assembly', { assembly_code: pendingAddPartCode, part_number: partNumber });
+          document.getElementById('modal-add-part').classList.remove('active');
+          app.callTool('list_assemblies', {});
+        });
+      });
+    }
+
+    // Create assembly
+    document.getElementById('btn-create').addEventListener('click', () => {
+      document.getElementById('modal-create').classList.add('active');
+    });
+
+    document.getElementById('btn-cancel-create').addEventListener('click', () => {
+      document.getElementById('modal-create').classList.remove('active');
+    });
+
+    document.getElementById('form-create').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      await app.callTool('create_assembly', {
+        assembly_code: form.assembly_code.value,
+        name: form.name.value
+      });
+      document.getElementById('modal-create').classList.remove('active');
+      form.reset();
+      app.callTool('list_assemblies', {});
+    });
+
+    // Add part
+    document.getElementById('btn-cancel-add-part').addEventListener('click', () => {
+      document.getElementById('modal-add-part').classList.remove('active');
+      pendingAddPartCode = null;
+    });
+
+    let partSearchTimeout;
+    document.getElementById('part-search').addEventListener('input', (e) => {
+      clearTimeout(partSearchTimeout);
+      const query = e.target.value.trim();
+      partSearchTimeout = setTimeout(async () => {
+        if (query.length < 2) {
+          const parts = await app.callTool('list_parts', {});
+          renderPartPicker(parts);
+        } else {
+          const parts = await app.callTool('search_parts', { query });
+          renderPartPicker(parts);
+        }
+      }, 300);
+    });
+
+    // Delete assembly
+    document.getElementById('btn-cancel-delete').addEventListener('click', () => {
+      document.getElementById('modal-delete').classList.remove('active');
+      pendingDeleteCode = null;
+    });
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+      if (pendingDeleteCode) {
+        const force = document.getElementById('force-delete').checked;
+        await app.callTool('delete_assembly', { assembly_code: pendingDeleteCode, force });
+        document.getElementById('modal-delete').classList.remove('active');
+        document.getElementById('force-delete').checked = false;
+        pendingDeleteCode = null;
+        app.callTool('list_assemblies', {});
+      }
+    });
+  </script>
+</body>
+</html>

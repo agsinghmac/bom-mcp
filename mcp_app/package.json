@@ -1,0 +1,16 @@
+{
+  "name": "bom-mcp-app",
+  "version": "1.0.0",
+  "description": "MCP App for ESP BOM list",
+  "main": "server.ts",
+  "type": "module",
+  "scripts": {
+    "serve": "tsx server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "latest",
+    "@modelcontextprotocol/sdk": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

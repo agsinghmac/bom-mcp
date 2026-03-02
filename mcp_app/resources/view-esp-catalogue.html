@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP Catalogue</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #1a1a2e);
+      --color-bg-secondary: var(--color-bg-secondary, #16213e);
+      --color-border: var(--color-border, #2d3748);
+      --color-text: var(--color-text-primary, #e2e8f0);
+      --color-text-secondary: var(--color-text-secondary, #a0aec0);
+      --color-accent: var(--color-accent, #3b82f6);
+      --color-critical: #ef4444;
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 700; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.9; }
+
+    .btn-primary {
+      background: var(--color-accent);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--color-critical);
+      color: white;
+    }
+
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-bg-secondary);
+      color: var(--color-text);
+      font-size: 0.875rem;
+    }
+
+    .table-container {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    th {
+      background: var(--color-bg-secondary);
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--color-bg-secondary); }
+
+    .esp-id {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+      color: var(--color-accent);
+      font-weight: 600;
+    }
+
+    .series-badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .series-redzone { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .series-aquamax { background: rgba(6, 182, 212, 0.2); color: #06b6d4; }
+    .series-hydrolift { background: rgba(20, 184, 166, 0.2); color: #14b8a6; }
+    .series-powerpump { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+    .series-deepwell { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 {
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-size: 0.875rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    .btn-secondary {
+      background: var(--color-bg);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>ESP Catalogue</h1>
+      <button class="btn btn-primary" id="btn-create">+ Create ESP</button>
+    </div>
+
+    <div class="filters">
+      <select id="filter-series">
+        <option value="">All Series</option>
+        <option value="RedZone Pro">RedZone Pro</option>
+        <option value="AquaMax">AquaMax</option>
+        <option value="HydroLift">HydroLift</option>
+        <option value="PowerPump">PowerPump</option>
+        <option value="DeepWell">DeepWell</option>
+      </select>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ESP ID</th>
+            <th>Model Name</th>
+            <th>Series</th>
+            <th>Power (kW)</th>
+            <th>Flow (m³/d)</th>
+            <th>Stages</th>
+            <th>Voltage (V)</th>
+            <th>Freq (Hz)</th>
+            <th>Cable (m)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="10" class="loading">Loading ESPs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create ESP Modal -->
+  <div class="modal-overlay" id="modal-create">
+    <div class="modal">
+      <h2>Create New ESP</h2>
+      <form id="form-create">
+        <div class="form-group">
+          <label>ESP ID *</label>
+          <input type="text" name="esp_id" placeholder="ESP-XXX" required>
+        </div>
+        <div class="form-group">
+          <label>Model Name *</label>
+          <input type="text" name="model_name" placeholder="DeepWell 1500" required>
+        </div>
+        <div class="form-group">
+          <label>Series *</label>
+          <select name="series" required>
+            <option value="">Select Series</option>
+            <option value="RedZone Pro">RedZone Pro</option>
+            <option value="AquaMax">AquaMax</option>
+            <option value="HydroLift">HydroLift</option>
+            <option value="PowerPump">PowerPump</option>
+            <option value="DeepWell">DeepWell</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Power (kW) *</label>
+            <input type="number" name="power_rating_kw" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label>Voltage (V) *</label>
+            <input type="number" name="voltage_v" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Frequency (Hz) *</label>
+            <input type="number" name="frequency_hz" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label>Flow Rate (m³/d) *</label>
+            <input type="number" name="flow_rate_m3d" step="0.1" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Stages *</label>
+            <input type="number" name="stages" required>
+          </div>
+          <div class="form-group">
+            <label>Cable Length (m) *</label>
+            <input type="number" name="cable_length_m" step="0.1" required>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create ESP</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="modal-delete">
+    <div class="modal">
+      <h2>Delete ESP</h2>
+      <p>Are you sure you want to delete <strong id="delete-esp-id"></strong>?</p>
+      <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 8px;">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'ESP Catalogue', version: '1.0.0' });
+
+    let allESPs = [];
+    let selectedSeries = '';
+    let pendingDeleteId = null;
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      if (Array.isArray(data) && data.length > 0 && data[0]?.esp_id) {
+        allESPs = data;
+        render();
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    app.callTool('list_esps', {});
+
+    function getSeriesClass(series) {
+      const map = {
+        'RedZone Pro': 'series-redzone',
+        'AquaMax': 'series-aquamax',
+        'HydroLift': 'series-hydrolift',
+        'PowerPump': 'series-powerpump',
+        'DeepWell': 'series-deepwell'
+      };
+      return map[series] || '';
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      let filtered = allESPs;
+
+      if (selectedSeries) {
+        filtered = allESPs.filter(esp => esp.series === selectedSeries);
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">No ESPs found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(esp => `
+        <tr>
+          <td><span class="esp-id">${esp.esp_id}</span></td>
+          <td>${esp.model_name}</td>
+          <td><span class="series-badge ${getSeriesClass(esp.series)}">${esp.series}</span></td>
+          <td>${esp.power_rating_kw}</td>
+          <td>${esp.flow_rate_m3d}</td>
+          <td>${esp.stages}</td>
+          <td>${esp.voltage_v}</td>
+          <td>${esp.frequency_hz}</td>
+          <td>${esp.cable_length_m}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-sm btn-primary" data-view-bom="${esp.esp_id}">BOM</button>
+              <button class="btn btn-sm btn-danger" data-delete="${esp.esp_id}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('[data-view-bom]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          app.callTool('view_esp_bom', { esp_id: btn.dataset.viewBom });
+        });
+      });
+
+      tbody.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          pendingDeleteId = btn.dataset.delete;
+          document.getElementById('delete-esp-id').textContent = pendingDeleteId;
+          document.getElementById('modal-delete').classList.add('active');
+        });
+      });
+    }
+
+    document.getElementById('filter-series').addEventListener('change', (e) => {
+      selectedSeries = e.target.value;
+      render();
+    });
+
+    document.getElementById('btn-create').addEventListener('click', () => {
+      document.getElementById('modal-create').classList.add('active');
+    });
+
+    document.getElementById('btn-cancel-create').addEventListener('click', () => {
+      document.getElementById('modal-create').classList.remove('active');
+    });
+
+    document.getElementById('form-create').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        esp_id: form.esp_id.value,
+        model_name: form.model_name.value,
+        series: form.series.value,
+        power_rating_kw: parseFloat(form.power_rating_kw.value),
+        voltage_v: parseInt(form.voltage_v.value),
+        frequency_hz: parseFloat(form.frequency_hz.value),
+        flow_rate_m3d: parseFloat(form.flow_rate_m3d.value),
+        stages: parseInt(form.stages.value),
+        cable_length_m: parseFloat(form.cable_length_m.value)
+      };
+
+      const result = await app.callTool('create_esp', data);
+      document.getElementById('modal-create').classList.remove('active');
+      form.reset();
+      app.callTool('list_esps', {});
+    });
+
+    document.getElementById('btn-cancel-delete').addEventListener('click', () => {
+      document.getElementById('modal-delete').classList.remove('active');
+      pendingDeleteId = null;
+    });
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+      if (pendingDeleteId) {
+        await app.callTool('delete_esp', { esp_id: pendingDeleteId });
+        document.getElementById('modal-delete').classList.remove('active');
+        pendingDeleteId = null;
+        app.callTool('list_esps', {});
+      }
+    });
+  </script>
+</body>
+</html>
