@@ -3,11 +3,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy mcp_app package files
-COPY mcp_app/package.json mcp_app/package-lock.json* ./mcp_app/
-
-# Install dependencies
-WORKDIR /app/mcp_app
+# Copy package files and install dependencies
+COPY mcp_app/package.json mcp_app/package-lock.json* ./
 RUN npm ci --only=production
 
 # Copy application code

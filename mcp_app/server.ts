@@ -13,9 +13,11 @@ const server = new McpServer(
 );
 
 // Helper to forward tool calls to Python MCP server
+const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL || 'http://localhost:3001';
+
 async function callPythonTool(toolName: string, args: Record<string, unknown> = {}) {
   const params = new URLSearchParams(args as Record<string, string>).toString();
-  const url = `http://localhost:3001/tool/${toolName}${params ? '?' + params : ''}`;
+  const url = `${PYTHON_SERVER_URL}/tool/${toolName}${params ? '?' + params : ''}`;
   const res = await fetch(url);
   return await res.json();
 }
