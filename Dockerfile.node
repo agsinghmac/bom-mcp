@@ -1,0 +1,21 @@
+# Node.js MCP App Server (UI layer)
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy mcp_app package files
+COPY mcp_app/package.json mcp_app/package-lock.json* ./mcp_app/
+
+# Install dependencies
+WORKDIR /app/mcp_app
+RUN npm ci --only=production
+
+# Copy application code
+COPY mcp_app/server.ts ./
+COPY mcp_app/resources/ ./resources/
+
+# Expose port
+EXPOSE 8080
+
+# Run MCP App server
+CMD ["node", "server.ts"]

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP BOM List</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>ESP Models</h1>
+  <table id="esp-table">
+    <thead>
+      <tr><th>ESP ID</th><th>Name</th><th>Series</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    async function loadEsps(){
+      const resp = await fetch('/tool/list_esps');
+      const data = await resp.json();
+      const tbody = document.querySelector('#esp-table tbody');
+      tbody.innerHTML = '';
+      data.forEach(esp=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${esp.id}</td><td>${esp.name}</td><td>${esp.series}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    loadEsps();
+  </script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BOM Viewer</title>
+  <style>
+    :root {
+      --color-bg: var(--color-bg-primary, #1a1a2e);
+      --color-bg-secondary: var(--color-bg-secondary, #16213e);
+      --color-border: var(--color-border, #2d3748);
+      --color-text: var(--color-text-primary, #e2e8f0);
+      --color-text-secondary: var(--color-text-secondary, #a0aec0);
+      --color-accent: var(--color-accent, #3b82f6);
+      --color-critical: #ef4444;
+      --radius: var(--radius-md, 8px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      color: var(--color-text);
+      background: var(--color-bg);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 700; }
+
+    .esp-selector {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-bg-secondary);
+      color: var(--color-text);
+      font-size: 0.875rem;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .btn-primary { background: var(--color-accent); color: white; }
+    .btn-secondary { background: var(--color-bg-secondary); color: var(--color-text); border: 1px solid var(--color-border); }
+
+    .summary-card {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .summary-item {
+      text-align: center;
+    }
+
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+    }
+
+    .summary-value.total { color: var(--color-accent); }
+    .summary-value.weight { color: #22c55e; }
+    .summary-value.critical { color: var(--color-critical); }
+
+    .summary-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+    }
+
+    .table-container {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    th {
+      background: var(--color-bg-secondary);
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover { background: var(--color-border); }
+
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--color-bg-secondary); }
+
+    tr.critical {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid var(--color-critical);
+    }
+
+    .part-number {
+      font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+      color: var(--color-accent);
+    }
+
+    .category-badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+    }
+
+    .critical-badge {
+      background: var(--color-critical);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-text-secondary);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .totals-row {
+      background: var(--color-bg-secondary);
+      font-weight: 600;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>BOM Viewer</h1>
+      <div class="actions">
+        <button class="btn btn-sm btn-secondary" id="btn-export">Export CSV</button>
+        <button class="btn btn-sm btn-secondary" id="btn-print">Print</button>
+      </div>
+    </div>
+
+    <div class="esp-selector">
+      <label>Select ESP:</label>
+      <select id="esp-select">
+        <option value="">-- Select ESP --</option>
+      </select>
+    </div>
+
+    <div class="summary-card" id="summary-card" style="display: none;">
+      <div class="summary-item">
+        <div class="summary-value total" id="summary-total">-</div>
+        <div class="summary-label">Total Parts</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value weight" id="summary-weight">-</div>
+        <div class="summary-label">Total Weight (kg)</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value critical" id="summary-critical">-</div>
+        <div class="summary-label">Critical Parts</div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="part_number">Part #</th>
+            <th data-sort="name">Name</th>
+            <th data-sort="category">Category</th>
+            <th data-sort="material">Material</th>
+            <th data-sort="quantity">Qty</th>
+            <th data-sort="uom">UOM</th>
+            <th data-sort="weight_kg">Weight (kg)</th>
+            <th data-sort="is_critical">Critical</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="8" class="loading">Select an ESP to view its BOM</td></tr>
+      </tbody>
+        <tfoot id="tfoot" style="display: none;">
+          <tr class="totals-row">
+            <td colspan="6">Total Weight</td>
+            <td id="total-weight">0 kg</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+
+    const app = new App({ name: 'BOM Viewer', version: '1.0.0' });
+
+    let allESPs = [];
+    let bomData = [];
+    let summaryData = null;
+    let sortCol = 'part_number';
+    let sortDir = 'asc';
+    let currentEspId = '';
+
+    app.onhostcontextchanged = (ctx) => {
+      if (ctx.styles?.variables) {
+        Object.entries(ctx.styles.variables).forEach(([key, val]) => {
+          document.documentElement.style.setProperty(`--${key}`, val);
+        });
+      }
+      if (ctx.safeAreaInsets) {
+        document.body.style.padding = `${ctx.safeAreaInsets.top}px ${ctx.safeAreaInsets.right}px ${ctx.safeAreaInsets.bottom}px ${ctx.safeAreaInsets.left}px`;
+      }
+    };
+
+    app.ontoolresult = (result) => {
+      const data = result?.data || result;
+      const toolName = result?._meta?.toolName;
+
+      if (toolName === 'list_esps' || (Array.isArray(data) && data.length > 0 && data[0]?.esp_id)) {
+        allESPs = data;
+        populateEspSelect();
+      } else if (toolName === 'get_esp_bom' || (Array.isArray(data) && data.length > 0 && data[0]?.part_number)) {
+        bomData = data;
+        renderBom();
+      } else if (toolName === 'get_bom_summary' || (data?.total_parts !== undefined)) {
+        summaryData = data;
+        renderSummary();
+      }
+    };
+
+    app.onteardown = async () => ({ return {}; });
+
+    await app.connect();
+
+    app.callTool('list_esps', {});
+
+    function populateEspSelect() {
+      const select = document.getElementById('esp-select');
+      allESPs.forEach(esp => {
+        const opt = document.createElement('option');
+        opt.value = esp.esp_id;
+        opt.textContent = `${esp.esp_id} - ${esp.model_name}`;
+        select.appendChild(opt);
+      });
+
+      if (currentEspId) {
+        select.value = currentEspId;
+      }
+    }
+
+    document.getElementById('esp-select').addEventListener('change', (e) => {
+      currentEspId = e.target.value;
+      if (currentEspId) {
+        app.callTool('get_esp_bom', { esp_id: currentEspId });
+        app.callTool('get_bom_summary', { esp_id: currentEspId });
+      } else {
+        bomData = [];
+        summaryData = null;
+        renderBom();
+        renderSummary();
+      }
+    });
+
+    function renderSummary() {
+      const card = document.getElementById('summary-card');
+      if (!summaryData || !currentEspId) {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = 'grid';
+      document.getElementById('summary-total').textContent = summaryData.total_parts || 0;
+      document.getElementById('summary-weight').textContent = (summaryData.total_weight_kg || 0).toFixed(1);
+      document.getElementById('summary-critical').textContent = summaryData.critical_count || 0;
+    }
+
+    function renderBom() {
+      const tbody = document.getElementById('tbody');
+      const tfoot = document.getElementById('tfoot');
+
+      if (!currentEspId || bomData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Select an ESP to view its BOM</td></tr>';
+        tfoot.style.display = 'none';
+        return;
+      }
+
+      let sorted = [...bomData].sort((a, b) => {
+        let av = a[sortCol], bv = b[sortCol];
+        if (typeof av === 'boolean') { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+        else if (typeof av !== 'number') { av = String(av || '').toLowerCase(); bv = String(bv || '').toLowerCase(); }
+        if (av < bv) return sortDir === 'asc' ? -1 : 1;
+        if (av > bv) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      tbody.innerHTML = sorted.map(p => `
+        <tr class="${p.is_critical ? 'critical' : ''}">
+          <td><span class="part-number">${p.part_number}</span></td>
+          <td>${p.name || '-'}</td>
+          <td><span class="category-badge">${p.category || '-'}</span></td>
+          <td>${p.material || '-'}</td>
+          <td>${p.quantity || 1}</td>
+          <td>${p.uom || 'ea'}</td>
+          <td>${p.weight_kg ? p.weight_kg.toFixed(1) : '-'}</td>
+          <td>${p.is_critical ? '<span class="critical-badge">Critical</span>' : '-'}</td>
+        </tr>
+      `).join('');
+
+      // Total weight
+      const totalWeight = bomData.reduce((sum, p) => sum + (p.weight_kg * (p.quantity || 1)), 0);
+      document.getElementById('total-weight').textContent = totalWeight.toFixed(1) + ' kg';
+      tfoot.style.display = 'table-footer-group';
+
+      // Sort headers
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === sortCol) {
+          th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+      });
+    }
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        if (sortCol === th.dataset.sort) {
+          sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortCol = th.dataset.sort;
+          sortDir = 'asc';
+        }
+        renderBom();
+      });
+    });
+
+    document.getElementById('btn-export').addEventListener('click', () => {
+      if (!bomData.length) return;
+      const headers = ['Part Number', 'Name', 'Category', 'Material', 'Qty', 'UOM', 'Weight (kg)', 'Critical'];
+      const rows = bomData.map(p => [
+        p.part_number, p.name, p.category, p.material, p.quantity || 1, p.uom || 'ea', p.weight_kg?.toFixed(1) || '', p.is_critical ? 'Yes' : 'No'
+      ]);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOM-${currentEspId}.csv`;
+      a.click();
+    });
+
+    document.getElementById('btn-print').addEventListener('click', () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>
