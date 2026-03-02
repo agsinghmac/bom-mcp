@@ -118,6 +118,123 @@ def create_app():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    # MCP Protocol endpoint (/mcp)
+    @app.route('/mcp', methods=['GET', 'POST'])
+    def mcp_endpoint():
+        """Handle MCP protocol JSON-RPC requests."""
+        try:
+            # Get the JSON-RPC request
+            if request.method == 'POST':
+                data = request.get_json() or {}
+            else:
+                # For GET requests, return server info
+                return jsonify({
+                    "name": "ESP BOM MCP Server",
+                    "version": "1.0.0",
+                    "description": "Electric Submersible Pump Parts and BOM Database"
+                })
+
+            jsonrpc_id = data.get('id')
+            method = data.get('method')
+            params = data.get('params', {})
+
+            # Handle MCP methods
+            if method == 'initialize':
+                return jsonify({
+                    "jsonrpc": "2.0",
+                    "id": jsonrpc_id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {},
+                            "resources": {}
+                        },
+                        "serverInfo": {
+                            "name": "ESP BOM MCP Server",
+                            "version": "1.0.0"
+                        }
+                    }
+                })
+
+            elif method == 'tools/list':
+                # Return list of available tools
+                tools = [
+                    {"name": "list_esps", "description": "List all ESP pump models", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "get_esp", "description": "Get a specific ESP", "inputSchema": {"type": "object", "properties": {"esp_id": {"type": "string"}}, "required": ["esp_id"]}},
+                    {"name": "get_esp_bom", "description": "Get BOM for an ESP", "inputSchema": {"type": "object", "properties": {"esp_id": {"type": "string"}}, "required": ["esp_id"]}},
+                    {"name": "get_bom_summary", "description": "Get BOM summary", "inputSchema": {"type": "object", "properties": {"esp_id": {"type": "string"}}, "required": ["esp_id"]}},
+                    {"name": "list_parts", "description": "List all parts", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "get_part", "description": "Get a specific part", "inputSchema": {"type": "object", "properties": {"part_number": {"type": "string"}}, "required": ["part_number"]}},
+                    {"name": "search_parts", "description": "Search parts", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+                    {"name": "get_stats", "description": "Get database statistics", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "view_dashboard", "description": "Show ESP dashboard", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "view_esp_catalogue", "description": "Show ESP catalogue", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "view_esp_bom", "description": "Show BOM for ESP", "inputSchema": {"type": "object", "properties": {"esp_id": {"type": "string"}}, "required": ["esp_id"]}},
+                    {"name": "manage_parts", "description": "Manage parts", "inputSchema": {"type": "object", "properties": {}}},
+                    {"name": "manage_assemblies", "description": "Manage assemblies", "inputSchema": {"type": "object", "properties": {}}},
+                ]
+                return jsonify({
+                    "jsonrpc": "2.0",
+                    "id": jsonrpc_id,
+                    "result": {"tools": tools}
+                })
+
+            elif method == 'tools/call':
+                tool_name = params.get('name')
+                tool_args = params.get('arguments', {})
+
+                with get_db() as db:
+                    # Map tool names to database methods
+                    tool_map = {
+                        'list_esps': lambda: db.get_all_esps(),
+                        'get_esp': lambda: db.get_esp(tool_args.get('esp_id')),
+                        'get_esp_bom': lambda: db.get_esp_bom_parts(tool_args.get('esp_id')),
+                        'get_bom_summary': lambda: db.get_bom_summary(tool_args.get('esp_id')),
+                        'list_parts': lambda: db.get_all_parts(),
+                        'get_part': lambda: db.get_part(tool_args.get('part_number')),
+                        'search_parts': lambda: db.search_parts(tool_args.get('query')),
+                        'get_parts_by_category': lambda: db.get_parts_by_category(tool_args.get('category')),
+                        'get_critical_parts': lambda: db.get_critical_parts(),
+                        'list_assemblies': lambda: db.get_all_assemblies(),
+                        'get_assembly': lambda: db.get_assembly(tool_args.get('assembly_code')),
+                        'get_stats': lambda: {
+                            "total_esps": len(db.get_all_esps()),
+                            "total_parts": len(db.get_all_parts()),
+                            "total_assemblies": len(db.get_all_assemblies()),
+                            "critical_parts": len(db.get_critical_parts()),
+                        },
+                    }
+
+                    if tool_name in tool_map:
+                        result = tool_map[tool_name]()
+                        return jsonify({
+                            "jsonrpc": "2.0",
+                            "id": jsonrpc_id,
+                            "result": {
+                                "content": [{"type": "text", "text": json.dumps(result)}]
+                            }
+                        })
+                    else:
+                        return jsonify({
+                            "jsonrpc": "2.0",
+                            "id": jsonrpc_id,
+                            "error": {"code": -32601, "message": f"Method not found: {tool_name}"}
+                        }), 404
+
+            else:
+                return jsonify({
+                    "jsonrpc": "2.0",
+                    "id": jsonrpc_id,
+                    "error": {"code": -32601, "message": f"Method not found: {method}"}
+                }), 404
+
+        except Exception as e:
+            return jsonify({
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32603, "message": str(e)}
+            }), 500
+
     return app
 
 
