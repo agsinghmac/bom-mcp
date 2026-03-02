@@ -221,6 +221,52 @@ def create_app():
                             "error": {"code": -32601, "message": f"Method not found: {tool_name}"}
                         }), 404
 
+            elif method == 'resources/list':
+                # Return list of available resources (HTML views)
+                resources = [
+                    {"uri": "view-dashboard.html", "name": "Dashboard View", "description": "ESP Dashboard with stats and critical parts"},
+                    {"uri": "view-esp-catalogue.html", "name": "ESP Catalogue View", "description": "ESP Catalogue with CRUD"},
+                    {"uri": "view-esp-bom.html", "name": "BOM Viewer View", "description": "BOM Viewer with export"},
+                    {"uri": "manage-parts.html", "name": "Parts Manager View", "description": "Parts Manager with CRUD"},
+                    {"uri": "manage-assemblies.html", "name": "Assembly Manager View", "description": "Assembly Manager with CRUD"},
+                ]
+                return jsonify({
+                    "jsonrpc": "2.0",
+                    "id": jsonrpc_id,
+                    "result": {"resources": resources}
+                })
+
+            elif method == 'resources/read':
+                resource_uri = params.get('uri', '')
+
+                # Map URIs to HTML content
+                html_contents = {
+                    'view-dashboard.html': get_dashboard_html(),
+                    'view-esp-catalogue.html': get_esp_catalogue_html(),
+                    'view-esp-bom.html': get_esp_bom_html(),
+                    'manage-parts.html': get_parts_html(),
+                    'manage-assemblies.html': get_assemblies_html(),
+                }
+
+                if resource_uri in html_contents:
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": jsonrpc_id,
+                        "result": {
+                            "contents": [{
+                                "uri": resource_uri,
+                                "mimeType": "text/html;profile=mcp-app",
+                                "text": html_contents[resource_uri]
+                            }]
+                        }
+                    })
+                else:
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": jsonrpc_id,
+                        "error": {"code": -32602, "message": f"Invalid resource: {resource_uri}"}
+                    }), 404
+
             else:
                 return jsonify({
                     "jsonrpc": "2.0",
@@ -234,6 +280,22 @@ def create_app():
                 "id": None,
                 "error": {"code": -32603, "message": str(e)}
             }), 500
+
+    # Serve HTML resources directly
+    @app.route('/resources/<resource_name>')
+    def serve_resource(resource_name):
+        """Serve MCP App HTML resources."""
+        html_contents = {
+            'view-dashboard.html': get_dashboard_html(),
+            'view-esp-catalogue.html': get_esp_catalogue_html(),
+            'view-esp-bom.html': get_esp_bom_html(),
+            'manage-parts.html': get_parts_html(),
+            'manage-assemblies.html': get_assemblies_html(),
+        }
+
+        if resource_name in html_contents:
+            return html_contents[resource_name], 200, {'Content-Type': 'text/html'}
+        return "Not found", 404
 
     return app
 
@@ -249,3 +311,76 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# HTML content generators for MCP Apps UI views
+def get_dashboard_html():
+    return """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>ESP Dashboard</title></head>
+<body><h1>ESP Dashboard</h1><p>Loading...</p>
+<script type="module">
+import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+const app = new App({ name: 'ESP Dashboard', version: '1.0.0' });
+app.onhostcontextchanged = (ctx) => { if (ctx.styles?.variables) { Object.entries(ctx.styles.variables).forEach(([k,v]) => document.documentElement.style.setProperty('--'+k, v)); }};
+app.ontoolresult = (r) => { const d=r?.data||r; if(d?.total_esps){ document.body.innerHTML='<h1>ESP Dashboard</h1><p>Total ESPs: '+d.total_esps+'</p><p>Total Parts: '+d.total_parts+'</p><p>Critical Parts: '+d.critical_parts+'</p>'; }};
+app.onteardown = async () => ({});
+await app.connect();
+app.callTool('get_stats', {});
+</script></body></html>"""
+
+def get_esp_catalogue_html():
+    return """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>ESP Catalogue</title></head>
+<body><h1>ESP Catalogue</h1><p>Loading...</p>
+<script type="module">
+import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+const app = new App({ name: 'ESP Catalogue', version: '1.0.0' });
+app.onhostcontextchanged = (ctx) => { if (ctx.styles?.variables) { Object.entries(ctx.styles.variables).forEach(([k,v]) => document.documentElement.style.setProperty('--'+k, v)); }};
+app.ontoolresult = (r) => { const d=r?.data||r; if(Array.isArray(d)&&d[0]?.esp_id){ document.body.innerHTML='<h1>ESP Catalogue</h1><ul>'+d.map(e=>'<li>'+e.esp_id+' - '+e.model_name+' ('+e.series+')</li>').join('')+'</ul>'; }};
+app.onteardown = async () => ({});
+await app.connect();
+app.callTool('list_esps', {});
+</script></body></html>"""
+
+def get_esp_bom_html():
+    return """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>BOM Viewer</title></head>
+<body><h1>BOM Viewer</h1><p>Loading...</p>
+<script type="module">
+import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+const app = new App({ name: 'BOM Viewer', version: '1.0.0' });
+app.onhostcontextchanged = (ctx) => { if (ctx.styles?.variables) { Object.entries(ctx.styles.variables).forEach(([k,v]) => document.documentElement.style.setProperty('--'+k, v)); }};
+const params = new URLSearchParams(window.location.search);
+const espId = params.get('esp_id') || 'ESP-001';
+app.ontoolresult = (r) => { const d=r?.data||r; if(Array.isArray(d)){ document.body.innerHTML='<h1>BOM for '+espId+'</h1><p>Total parts: '+d.length+'</p><table border="1"><tr><th>Part #</th><th>Name</th><th>Qty</th></tr>'+d.map(p=>'<tr><td>'+p.part_number+'</td><td>'+p.name+'</td><td>'+(p.quantity||1)+'</td></tr>').join('')+'</table>'; }};
+app.onteardown = async () => ({});
+await app.connect();
+app.callTool('get_esp_bom', { esp_id: espId });
+</script></body></html>"""
+
+def get_parts_html():
+    return """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Parts Manager</title></head>
+<body><h1>Parts Manager</h1><p>Loading...</p>
+<script type="module">
+import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+const app = new App({ name: 'Parts Manager', version: '1.0.0' });
+app.onhostcontextchanged = (ctx) => { if (ctx.styles?.variables) { Object.entries(ctx.styles.variables).forEach(([k,v]) => document.documentElement.style.setProperty('--'+k, v)); }};
+app.ontoolresult = (r) => { const d=r?.data||r; if(Array.isArray(d)){ document.body.innerHTML='<h1>Parts Manager</h1><p>Total parts: '+d.length+'</p><table border="1"><tr><th>Part #</th><th>Name</th><th>Category</th></tr>'+d.map(p=>'<tr><td>'+p.part_number+'</td><td>'+p.name+'</td><td>'+p.category+'</td></tr>').join('')+'</table>'; }};
+app.onteardown = async () => ({});
+await app.connect();
+app.callTool('list_parts', {});
+</script></body></html>"""
+
+def get_assemblies_html():
+    return """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Assembly Manager</title></head>
+<body><h1>Assembly Manager</h1><p>Loading...</p>
+<script type="module">
+import { App } from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.0.1/dist/src/app-with-deps.js';
+const app = new App({ name: 'Assembly Manager', version: '1.0.0' });
+app.onhostcontextchanged = (ctx) => { if (ctx.styles?.variables) { Object.entries(ctx.styles.variables).forEach(([k,v]) => document.documentElement.style.setProperty('--'+k, v)); }};
+app.ontoolresult = (r) => { const d=r?.data||r; if(Array.isArray(d)){ document.body.innerHTML='<h1>Assembly Manager</h1><ul>'+d.map(a=>'<li>'+a.assembly_code+' - '+a.name+'</li>').join('')+'</ul>'; }};
+app.onteardown = async () => ({});
+await app.connect();
+app.callTool('list_assemblies', {});
+</script></body></html>"""
