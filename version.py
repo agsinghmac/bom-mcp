@@ -13,13 +13,16 @@ def get_git_sha() -> str:
     """Return the git SHA for the running build.
 
     Resolution order:
-    1. GIT_SHA environment variable (set via Docker ARG/ENV at build time).
-    2. git rev-parse at runtime (local dev only; skipped if git unavailable).
-    3. "unknown" as safe fallback.
+    1. GIT_SHA environment variable (set via Docker ARG/ENV or deploy env).
+    2. APP_VERSION environment variable (optional explicit override).
+    3. K_REVISION environment variable (Cloud Run revision fallback).
+    4. git rev-parse at runtime (local dev only; skipped if git unavailable).
+    5. "unknown" as safe fallback.
     """
-    sha = os.environ.get("GIT_SHA", "").strip()
-    if sha:
-        return sha[:8]
+    for env_name in ("GIT_SHA", "APP_VERSION", "K_REVISION"):
+        value = os.environ.get(env_name, "").strip()
+        if value:
+            return value[:32]
 
     try:
         result = subprocess.run(

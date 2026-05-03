@@ -30,10 +30,12 @@ def create_app():
 
     # Health check
     @app.route('/health')
+    @app.route('/api/health')
     def health():
         return jsonify({"status": "healthy", "version": APP_VERSION})
 
     @app.route('/version')
+    @app.route('/api/version')
     def version():
         return jsonify({"version": APP_VERSION})
 
@@ -161,7 +163,7 @@ def create_app():
                         },
                         "serverInfo": {
                             "name": "ESP BOM MCP Server",
-                            "version": "1.0.0"
+                            "version": APP_VERSION
                         }
                     }
                 })
