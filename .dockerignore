@@ -17,3 +17,9 @@ htmlcov
 .env
 .venv
 venv/
+node_modules/
+*.log*
+.env*
+coverage/
+Dockerfile*
+.dockerignore

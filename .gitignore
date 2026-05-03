@@ -41,3 +41,16 @@ mcp_main_config.json
 # Spec-kit
 .specify/
 spec-kit/node_modules/
+
+# Node and logs
+node_modules/
+*.log
+
+# Env variants
+.env*
+
+# Universal temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
