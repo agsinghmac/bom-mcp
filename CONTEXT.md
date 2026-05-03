@@ -6,6 +6,21 @@
 - **Description**: Electric Submersible Pump (ESP) Parts and Bill of Materials database
 - **Transport**: stdio
 
+## MCP Resources
+
+### Skill Resources
+
+| URI | Purpose |
+|-----|---------|
+| `skill://esp-selection-bom-readiness` | Agent guidance for ranking ESP candidates and generating BOM readiness/procurement output |
+
+Resource source file:
+- `skills/esp_selection_bom_readiness.md`
+
+Usage notes:
+- Agent should discover/read this skill through MCP resource list/read operations.
+- The skill orchestrates existing tools (`list_esps`, `get_esp`, `get_esp_bom`, `get_bom_summary`, `get_part`) and does not require a new assessment endpoint.
+
 ## Available Tools
 
 ### ESP

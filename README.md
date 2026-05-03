@@ -117,6 +117,17 @@ Trigger views by asking Claude:
 | `get_stats` | Database statistics |
 | `get_server_info` | Server information |
 
+## MCP Resources
+
+### Skill Resources (`skill://`)
+
+| Resource URI | Name | Description |
+|--------------|------|-------------|
+| `skill://esp-selection-bom-readiness` | ESP Selection & BOM Readiness Assessment | Instruction resource that guides agents to rank ESP candidates and generate BOM readiness/procurement alerts using existing MCP tools |
+
+Trigger phrase example:
+- "Assess ESP selection and BOM readiness"
+
 ## Data Model
 
 - **Parts**: Individual components (part_number, name, category, material, weight_kg, is_critical, uom)

@@ -28,9 +28,16 @@ htmlcov/
 .claude/
 .agents/
 
+#copilot
+.copilot/
+
 # Database
 *.db
 
 # MCP
 mcp_app/node_modules/
 mcp_main_config.json
+
+# Spec-kit
+.specify/
+spec-kit/node_modules/

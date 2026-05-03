@@ -6,12 +6,14 @@ assemblies, and bills of materials.
 """
 
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Optional
 from fastmcp import FastMCP
 from esp_db import ESPDatabase, init_database, DatabasePath
 
 # Initialize FastMCP server
 mcp = FastMCP("ESP BOM Database")
+SKILL_RESOURCE_PATH = Path(__file__).resolve().parent / "skills" / "esp_selection_bom_readiness.md"
 
 
 # Context manager for database lifecycle
@@ -23,6 +25,28 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _read_skill_resource() -> str:
+    """Read skill resource content from the repository skills directory."""
+    try:
+        return SKILL_RESOURCE_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return (
+            "# Missing skill resource\n\n"
+            "The file `skills/esp_selection_bom_readiness.md` was not found. "
+            "Create the file and restart the MCP server."
+        )
+
+
+@mcp.resource("skill://esp-selection-bom-readiness")
+def esp_selection_bom_readiness_skill() -> str:
+    """ESP Selection & BOM Readiness Assessment skill instructions.
+
+    Discoverable MCP resource containing workflow guidance that agents can
+    read and execute with existing ESP/BOM tools.
+    """
+    return _read_skill_resource()
 
 
 # ============ ESP Tools ============

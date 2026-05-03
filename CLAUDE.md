@@ -55,6 +55,10 @@ python cli.py --help
 - `mcp_server.py` - FastMCP server providing tools for AI assistants
   - Run `python run_mcp.py` to start
 
+- `skills/` - Resource-backed agent skill instructions
+  - `esp_selection_bom_readiness.md` is served as `skill://esp-selection-bom-readiness`
+  - Skills are consumed via MCP resource read/list flows (not `SKILL.md` files)
+
 - `mcp_app/` - Node.js MCP Apps UI layer
   - TypeScript server that wraps the Python MCP server
   - Provides 5 interactive UI views for Claude Desktop/Claude.ai
@@ -114,3 +118,7 @@ Trigger views by asking:
 | `get_stats` | Get database statistics |
 
 Plus full CRUD tools for creating, updating, and deleting ESPs, parts, and assemblies.
+
+## MCP Resources
+
+- `skill://esp-selection-bom-readiness` - Agent-readable instructions for ESP recommendation and BOM readiness assessment.
