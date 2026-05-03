@@ -39,6 +39,7 @@ mcp_app/node_modules/
 mcp_main_config.json
 
 # Spec-kit
+specs/
 .specify/
 spec-kit/node_modules/
 
