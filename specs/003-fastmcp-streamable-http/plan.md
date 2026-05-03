@@ -88,4 +88,33 @@ No constitution violations. No complexity justifications required.
 
 ## Implementation Summary
 
-*To be filled after /speckit.implement completes.*
+**Status**: ✅ Complete — implemented 2026-05-04 on branch `003-fastmcp-streamable-http`
+
+### Changes Made
+
+| File | Action | Detail |
+|------|--------|--------|
+| `requirements.txt` | Updated | `fastmcp>=0.2.0` → `fastmcp>=3.2.4` |
+| `run_mcp.py` | Updated | Added `VersionHeaderMiddleware` (Starlette ASGI); passes `Middleware(VersionHeaderMiddleware)` to `mcp.run()` |
+| `mcp_server.py` | Updated | Added Starlette + version imports; added 5 custom routes: `/health`, `/api/health`, `/version`, `/api/version`, `/tool/{tool_name}` |
+| `Dockerfile` | Updated | COPY list now includes `skill_resource_manager.py`, `.skills/` and excludes `http_server.py`; CMD changed to `run_mcp.py --port 8080` |
+| `http_server.py` | Deleted | All MCP code (JSON-RPC framing, tool dispatch, SSE stub, HTML generators) removed; file deleted (~400 lines retired) |
+
+### Validation Results (localhost:18080)
+
+| Endpoint | Status | Header |
+|----------|--------|--------|
+| `GET /health` | 200 | `x-app-version: b1ba5cb` |
+| `GET /api/health` | 200 | `x-app-version: b1ba5cb` |
+| `GET /version` | 200 | `{"version":"b1ba5cb"}` |
+| `GET /api/version` | 200 | `{"version":"b1ba5cb"}` |
+| `GET /tool/list_esps` | 200 | 10 ESP records returned |
+| `POST /mcp` (no Accept) | 406 | Correctly rejected — real MCP client sends `application/json, text/event-stream` |
+
+### Architecture After Feature 003
+
+- **Single MCP path**: FastMCP 3.2.4 native `streamable-http` transport handles all `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
+- **Custom routes**: All non-MCP HTTP surface (health, version, tool proxy) registered via `@mcp.custom_route()`
+- **Version header**: Injected on every response by `VersionHeaderMiddleware` wired via Starlette `Middleware()` wrapper
+- **No Flask MCP shim**: `http_server.py` deleted; Flask retained only for `api.py` REST endpoints
+- **Node MCP App compatibility**: `/tool/{tool_name}` route preserved with identical interface

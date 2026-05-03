@@ -13,9 +13,9 @@
 
 **Purpose**: Prepare dependencies and configuration before any story implementation begins.
 
-- [ ] T001 Update fastmcp version pin from `>=0.2.0` to `>=3.2.4` in requirements.txt
-- [ ] T002 [P] Update Dockerfile COPY list to include `skill_resource_manager.py`, `version.py`, `.skills/` and remove `http_server.py` dependency in Dockerfile
-- [ ] T003 [P] Update Dockerfile CMD from `http_server.py` to `["python", "run_mcp.py", "--port", "8080"]` in Dockerfile
+- [X] T001 Update fastmcp version pin from `>=0.2.0` to `>=3.2.4` in requirements.txt
+- [X] T002 [P] Update Dockerfile COPY list to include `skill_resource_manager.py`, `version.py`, `.skills/` and remove `http_server.py` dependency in Dockerfile
+- [X] T003 [P] Update Dockerfile CMD from `http_server.py` to `["python", "run_mcp.py", "--port", "8080"]` in Dockerfile
 
 ---
 
@@ -25,8 +25,8 @@
 
 **⚠️ CRITICAL**: No user story implementation starts before this phase is complete.
 
-- [ ] T004 Implement `VersionHeaderMiddleware` Starlette ASGI class in run_mcp.py that injects `X-App-Version` header on every response
-- [ ] T005 Pass `middleware=[VersionHeaderMiddleware]` to `mcp.run()` in run_mcp.py streamable-http path
+- [X] T004 Implement `VersionHeaderMiddleware` Starlette ASGI class in run_mcp.py that injects `X-App-Version` header on every response
+- [X] T005 Pass `middleware=[VersionHeaderMiddleware]` to `mcp.run()` in run_mcp.py streamable-http path
 
 **Checkpoint**: Version header middleware wired — all subsequent routes will emit `X-App-Version` automatically.
 
@@ -40,9 +40,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Verify `mcp_server.py` `mcp.run(transport="streamable-http", ...)` works end-to-end by starting server on port 8080 and manually calling `initialize` in mcp_server.py / run_mcp.py
-- [ ] T007 [US1] Confirm `tools/list` returns all tools registered in `mcp_server.py` (list_esps, get_esp, get_esp_bom, get_bom_summary, list_parts, get_part, search_parts, get_parts_by_category, get_critical_parts, list_assemblies, get_assembly, get_stats and all CRUD tools) — document any gap in run_mcp.py
-- [ ] T008 [US1] Confirm `resources/list` returns `skill://index` and `skill://esp_selection_bom_readiness` via FastMCP transport — no extra wiring needed since `mcp_server.py` already registers these
+- [X] T006 [US1] Verify `mcp_server.py` `mcp.run(transport="streamable-http", ...)` works end-to-end by starting server on port 8080 and manually calling `initialize` in mcp_server.py / run_mcp.py
+- [X] T007 [US1] Confirm `tools/list` returns all tools registered in `mcp_server.py` (list_esps, get_esp, get_esp_bom, get_bom_summary, list_parts, get_part, search_parts, get_parts_by_category, get_critical_parts, list_assemblies, get_assembly, get_stats and all CRUD tools) — document any gap in run_mcp.py
+- [X] T008 [US1] Confirm `resources/list` returns `skill://index` and `skill://esp_selection_bom_readiness` via FastMCP transport — no extra wiring needed since `mcp_server.py` already registers these
 
 **Checkpoint**: User Story 1 is independently functional — MCP clients can connect and call all tools/resources via native transport.
 
@@ -56,12 +56,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Add `@mcp.custom_route("/tool/{tool_name}", methods=["GET", "POST"])` handler in mcp_server.py with full tool dispatch map matching all tools previously in `http_server.py` tool_map
-- [ ] T010 [US2] Remove `/mcp` route, JSON-RPC framing (`jsonrpc_id`, method dispatch, `initialize`/`tools/list`/`tools/call`/`resources/list`/`resources/read` handlers) from http_server.py
-- [ ] T011 [US2] Remove SSE stub endpoint (`/mcp GET` streaming response) from http_server.py
-- [ ] T012 [US2] Remove HTML resource generators (`get_dashboard_html`, `get_esp_catalogue_html`, `get_esp_bom_html`, `get_parts_html`, `get_assemblies_html`) and `/resources/<resource_name>` route from http_server.py
-- [ ] T013 [US2] Remove duplicate tool dispatch `tool_map` in `/tool/<tool_name>` Flask route from http_server.py (now served by FastMCP custom route in T009)
-- [ ] T014 [P] [US2] Delete http_server.py entirely if empty after T010–T013, or confirm it contains only non-MCP code
+- [X] T009 [US2] Add `@mcp.custom_route("/tool/{tool_name}", methods=["GET", "POST"])` handler in mcp_server.py with full tool dispatch map matching all tools previously in `http_server.py` tool_map
+- [X] T010 [US2] Remove `/mcp` route, JSON-RPC framing (`jsonrpc_id`, method dispatch, `initialize`/`tools/list`/`tools/call`/`resources/list`/`resources/read` handlers) from http_server.py
+- [X] T011 [US2] Remove SSE stub endpoint (`/mcp GET` streaming response) from http_server.py
+- [X] T012 [US2] Remove HTML resource generators (`get_dashboard_html`, `get_esp_catalogue_html`, `get_esp_bom_html`, `get_parts_html`, `get_assemblies_html`) and `/resources/<resource_name>` route from http_server.py
+- [X] T013 [US2] Remove duplicate tool dispatch `tool_map` in `/tool/<tool_name>` Flask route from http_server.py (now served by FastMCP custom route in T009)
+- [X] T014 [P] [US2] Delete http_server.py entirely if empty after T010–T013, or confirm it contains only non-MCP code
 
 **Checkpoint**: User Story 2 is independently functional — `http_server.py` has zero MCP protocol code; `Dockerfile` CMD is `run_mcp.py`.
 
@@ -75,10 +75,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Add `@mcp.custom_route("/health", methods=["GET"])` handler in mcp_server.py returning `{"status": "healthy", "version": APP_VERSION}`
-- [ ] T016 [US3] Add `@mcp.custom_route("/api/health", methods=["GET"])` alias in mcp_server.py pointing to same health response
-- [ ] T017 [US3] Add `@mcp.custom_route("/version", methods=["GET"])` handler in mcp_server.py returning `{"version": APP_VERSION}`
-- [ ] T018 [P] [US3] Add `@mcp.custom_route("/api/version", methods=["GET"])` alias in mcp_server.py pointing to same version response
+- [X] T015 [US3] Add `@mcp.custom_route("/health", methods=["GET"])` handler in mcp_server.py returning `{"status": "healthy", "version": APP_VERSION}`
+- [X] T016 [US3] Add `@mcp.custom_route("/api/health", methods=["GET"])` alias in mcp_server.py pointing to same health response
+- [X] T017 [US3] Add `@mcp.custom_route("/version", methods=["GET"])` handler in mcp_server.py returning `{"version": APP_VERSION}`
+- [X] T018 [P] [US3] Add `@mcp.custom_route("/api/version", methods=["GET"])` alias in mcp_server.py pointing to same version response
 
 **Checkpoint**: User Story 3 is independently functional — health and version endpoints return 200 with non-unknown version when `GIT_SHA` is set.
 
@@ -88,10 +88,10 @@
 
 **Purpose**: Finalize Docker config, run manual validation checklist, record regression results.
 
-- [ ] T019 [P] Verify Dockerfile COPY list includes all required files for `mcp_server.py`: `esp_db.py`, `mcp_server.py`, `run_mcp.py`, `skill_resource_manager.py`, `version.py`, `.skills/` in Dockerfile
-- [ ] T020 Run manual validation checklist from specs/003-fastmcp-streamable-http/quickstart.md steps 1–10 and mark each item complete
-- [ ] T021 Record baseline tool regression results (list_esps, get_esp_bom, get_bom_summary, list_parts, get_stats, skill://index) in specs/003-fastmcp-streamable-http/quickstart.md
-- [ ] T022 [P] Update Implementation Summary section in specs/003-fastmcp-streamable-http/plan.md with what was done
+- [X] T019 [P] Verify Dockerfile COPY list includes all required files for `mcp_server.py`: `esp_db.py`, `mcp_server.py`, `run_mcp.py`, `skill_resource_manager.py`, `version.py`, `.skills/` in Dockerfile
+- [X] T020 Run manual validation checklist from specs/003-fastmcp-streamable-http/quickstart.md steps 1–10 and mark each item complete
+- [X] T021 Record baseline tool regression results (list_esps, get_esp_bom, get_bom_summary, list_parts, get_stats, skill://index) in specs/003-fastmcp-streamable-http/quickstart.md
+- [X] T022 [P] Update Implementation Summary section in specs/003-fastmcp-streamable-http/plan.md with what was done
 
 ---
 

@@ -9,7 +9,30 @@ Usage:
 """
 
 import argparse
+from starlette.middleware import Middleware
 from mcp_server import mcp
+from version import APP_VERSION
+
+
+class VersionHeaderMiddleware:
+    """Starlette ASGI middleware that injects X-App-Version on every HTTP response."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_version(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"x-app-version", APP_VERSION.encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_version)
 
 
 def main():
@@ -23,8 +46,8 @@ def main():
     args = parser.parse_args()
 
     if args.port:
-        # Run MCP server with StreamableHttp transport
-        mcp.run(transport="streamable-http", host="0.0.0.0", port=args.port)
+        # Run MCP server with StreamableHttp transport and version header middleware
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=args.port, middleware=[Middleware(VersionHeaderMiddleware)])
     else:
         # Run with stdio transport (default)
         mcp.run()
