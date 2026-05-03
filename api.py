@@ -8,9 +8,16 @@ for Electric Submersible Pumps.
 from flask import Flask, jsonify, request
 from esp_db import ESPDatabase, init_database, DatabasePath
 from typing import Optional
+from version import APP_VERSION
 
 app = Flask(__name__)
 _db: Optional[ESPDatabase] = None
+
+
+@app.after_request
+def add_version_header(response):
+    response.headers["X-App-Version"] = APP_VERSION
+    return response
 
 
 def get_db() -> ESPDatabase:
@@ -21,10 +28,16 @@ def get_db() -> ESPDatabase:
     return _db
 
 
+@app.route("/api/version", methods=["GET"])
+def version():
+    """Return the deployed application version (git SHA)."""
+    return jsonify({"version": APP_VERSION})
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
-    return jsonify({"status": "healthy", "service": "ESP BOM API"})
+    return jsonify({"status": "healthy", "service": "ESP BOM API", "version": APP_VERSION})
 
 
 # ============ Parts Endpoints ============
