@@ -7,13 +7,25 @@ assemblies, and bills of materials.
 
 from contextlib import contextmanager
 from pathlib import Path
+import threading
+import time
 from typing import Optional
 from fastmcp import FastMCP
 from esp_db import ESPDatabase, init_database, DatabasePath
+from skill_resource_manager import SkillResourceManager
 
 # Initialize FastMCP server
 mcp = FastMCP("ESP BOM Database")
-SKILL_RESOURCE_PATH = Path(__file__).resolve().parent / "skills" / "esp_selection_bom_readiness.md"
+SKILL_DIRECTORY_NAME = ".skills"
+SKILL_DIRECTORY_PATH = Path(__file__).resolve().parent / SKILL_DIRECTORY_NAME
+SKILL_INDEX_URI = "skill://index"
+SKILL_REFRESH_INTERVAL_SECONDS = 30.0
+_skill_manager = SkillResourceManager(
+    skill_dir=SKILL_DIRECTORY_PATH,
+    poll_interval_seconds=SKILL_REFRESH_INTERVAL_SECONDS,
+)
+_registered_skill_metadata: dict[str, tuple[str, str]] = {}
+_registered_lock = threading.Lock()
 
 
 # Context manager for database lifecycle
@@ -27,26 +39,88 @@ def get_db():
         db.close()
 
 
-def _read_skill_resource() -> str:
-    """Read skill resource content from the repository skills directory."""
-    try:
-        return SKILL_RESOURCE_PATH.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return (
-            "# Missing skill resource\n\n"
-            "The file `skills/esp_selection_bom_readiness.md` was not found. "
-            "Create the file and restart the MCP server."
-        )
+def _register_dynamic_skill_resource(uri: str, name: str, description: str) -> None:
+    """Register one concrete skill resource URI with dynamic content lookup."""
+    skill_name = uri.replace("skill://", "", 1)
+    skill_key = skill_name
+
+    def _read_dynamic_skill() -> str:
+        _sync_skill_resources(mode="PERIODIC", force_refresh=False)
+        try:
+            return _skill_manager.get_skill_content(skill_key)
+        except KeyError:
+            return (
+                "# Missing skill resource\n\n"
+                f"Skill resource `{uri}` is not currently discoverable in `{SKILL_DIRECTORY_NAME}/`."
+            )
+
+    _read_dynamic_skill.__name__ = f"read_skill_{skill_name.replace('-', '_')}"
+    mcp.resource(
+        uri,
+        name=name,
+        description=description,
+        mime_type="text/markdown",
+    )(_read_dynamic_skill)
+    _registered_skill_metadata[uri] = (name, description)
 
 
-@mcp.resource("skill://esp-selection-bom-readiness")
-def esp_selection_bom_readiness_skill() -> str:
-    """ESP Selection & BOM Readiness Assessment skill instructions.
+def _sync_skill_resources(mode: str, force_refresh: bool) -> None:
+    """Refresh discovery cache and synchronize concrete skill resources."""
+    with _registered_lock:
+        if force_refresh:
+            _skill_manager.refresh(mode=mode)
+        else:
+            _skill_manager.refresh_if_due()
 
-    Discoverable MCP resource containing workflow guidance that agents can
-    read and execute with existing ESP/BOM tools.
-    """
-    return _read_skill_resource()
+        discovered = _skill_manager.list_skills(refresh_if_due=False)
+        discovered_by_uri = {entry.uri: entry for entry in discovered}
+
+        for uri in list(_registered_skill_metadata):
+            if uri in discovered_by_uri:
+                continue
+            mcp._local_provider.remove_resource(uri)
+            _registered_skill_metadata.pop(uri, None)
+
+        for uri, entry in discovered_by_uri.items():
+            previous = _registered_skill_metadata.get(uri)
+            current = (entry.name, entry.description)
+            if previous == current:
+                continue
+            if previous is not None:
+                mcp._local_provider.remove_resource(uri)
+            _register_dynamic_skill_resource(uri, entry.name, entry.description)
+
+
+@mcp.resource(
+    SKILL_INDEX_URI,
+    name="Skill Index",
+    description="Aggregated index of discoverable markdown skills.",
+    mime_type="text/markdown",
+)
+def skill_index() -> str:
+    """Return the current skill index with refresh diagnostics and status."""
+    _sync_skill_resources(mode="PERIODIC", force_refresh=False)
+    return _skill_manager.get_index_content()
+
+
+def _start_skill_refresh_worker() -> None:
+    """Start periodic refresh to keep resource listing synchronized at runtime."""
+
+    def _worker() -> None:
+        while True:
+            time.sleep(SKILL_REFRESH_INTERVAL_SECONDS)
+            try:
+                _sync_skill_resources(mode="PERIODIC", force_refresh=True)
+            except Exception:
+                # Keep refresh loop alive even if one cycle fails unexpectedly.
+                pass
+
+    thread = threading.Thread(target=_worker, name="skill-refresh-worker", daemon=True)
+    thread.start()
+
+
+_sync_skill_resources(mode="STARTUP", force_refresh=True)
+_start_skill_refresh_worker()
 
 
 # ============ ESP Tools ============
@@ -56,9 +130,6 @@ def list_esps() -> list[dict]:
     """List all ESP pump models with their specifications."""
     with get_db() as db:
         return db.get_all_esps()
-
-# Register MCP App for list_esps tool
-list_esps._meta = {"ui": {"resourceUri": "mcp_app/index.html"}}
 
 
 @mcp.tool
@@ -85,7 +156,6 @@ def get_esp_bom(esp_id: str) -> list[dict] | None:
     with get_db() as db:
         return db.get_esp_bom_parts(esp_id)
 
-get_esp_bom._meta = {"ui": {"resourceUri": "mcp_app/bom-table.html"}}
 
 
 @mcp.tool
@@ -98,7 +168,6 @@ def get_bom_summary(esp_id: str) -> dict | None:
     with get_db() as db:
         return db.get_bom_summary(esp_id)
 
-get_bom_summary._meta = {"ui": {"resourceUri": "mcp_app/bom-summary.html"}}
 
 
 @mcp.tool
@@ -236,7 +305,6 @@ def list_parts() -> list[dict]:
     with get_db() as db:
         return db.get_all_parts()
 
-list_parts._meta = {"ui": {"resourceUri": "mcp_app/parts-table.html"}}
 
 
 @mcp.tool
@@ -249,7 +317,6 @@ def get_part(part_number: str) -> dict | None:
     with get_db() as db:
         return db.get_part(part_number)
 
-get_part._meta = {"ui": {"resourceUri": "mcp_app/part-detail.html"}}
 
 
 @mcp.tool
@@ -262,7 +329,6 @@ def search_parts(query: str) -> list[dict]:
     with get_db() as db:
         return db.search_parts(query)
 
-search_parts._meta = {"ui": {"resourceUri": "mcp_app/parts-table.html"}}
 
 
 @mcp.tool
@@ -275,7 +341,6 @@ def get_parts_by_category(category: str) -> list[dict]:
     with get_db() as db:
         return db.get_parts_by_category(category)
 
-get_parts_by_category._meta = {"ui": {"resourceUri": "mcp_app/parts-table.html"}}
 
 
 @mcp.tool
@@ -284,7 +349,6 @@ def get_critical_parts() -> list[dict]:
     with get_db() as db:
         return db.get_critical_parts()
 
-get_critical_parts._meta = {"ui": {"resourceUri": "mcp_app/parts-table.html"}}
 
 
 @mcp.tool

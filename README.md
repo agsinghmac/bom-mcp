@@ -121,9 +121,14 @@ Trigger views by asking Claude:
 
 ### Skill Resources (`skill://`)
 
+Migration note: skill markdown files now live in `.skills/` instead of `skills/`.
+Each `.skills/*.md` file is auto-discovered and exposed as `skill://<filename>`.
+Use `skill://index` to view the live catalog and discovery diagnostics.
+
 | Resource URI | Name | Description |
 |--------------|------|-------------|
-| `skill://esp-selection-bom-readiness` | ESP Selection & BOM Readiness Assessment | Instruction resource that guides agents to rank ESP candidates and generate BOM readiness/procurement alerts using existing MCP tools |
+| `skill://index` | Skill Index | Aggregated list of discovered skills with descriptions and refresh status |
+| `skill://esp_selection_bom_readiness` | ESP Selection & BOM Readiness Assessment | Instruction resource that guides agents to rank ESP candidates and generate BOM readiness/procurement alerts using existing MCP tools |
 
 Trigger phrase example:
 - "Assess ESP selection and BOM readiness"
