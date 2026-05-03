@@ -11,8 +11,11 @@ import threading
 import time
 from typing import Optional
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from esp_db import ESPDatabase, init_database, DatabasePath
 from skill_resource_manager import SkillResourceManager
+from version import APP_VERSION
 
 # Initialize FastMCP server
 mcp = FastMCP("ESP BOM Database")
@@ -562,7 +565,7 @@ def get_server_info() -> dict:
     return {
         "name": "ESP BOM MCP Server",
         "description": "Electric Submersible Pump Parts and Bill of Materials database",
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "capabilities": {
             "esp_management": True,
             "part_management": True,
@@ -570,3 +573,136 @@ def get_server_info() -> dict:
             "bom_queries": True,
         },
     }
+
+
+# ============ Custom HTTP Routes ============
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint for Cloud Run and load balancers."""
+    return JSONResponse({"status": "healthy", "version": APP_VERSION})
+
+
+@mcp.custom_route("/api/health", methods=["GET"])
+async def api_health_check(request: Request) -> JSONResponse:
+    """API health check alias."""
+    return JSONResponse({"status": "healthy", "version": APP_VERSION})
+
+
+@mcp.custom_route("/version", methods=["GET"])
+async def version_info(request: Request) -> JSONResponse:
+    """Return deployed version information."""
+    return JSONResponse({"version": APP_VERSION})
+
+
+@mcp.custom_route("/api/version", methods=["GET"])
+async def api_version_info(request: Request) -> JSONResponse:
+    """API version alias."""
+    return JSONResponse({"version": APP_VERSION})
+
+
+@mcp.custom_route("/tool/{tool_name}", methods=["GET", "POST"])
+async def tool_proxy(request: Request) -> JSONResponse:
+    """HTTP proxy for MCP tools — used by the Node.js MCP Apps UI server."""
+    tool_name = request.path_params["tool_name"]
+    if request.method == "POST":
+        try:
+            args = await request.json()
+        except Exception:
+            args = {}
+    else:
+        args = dict(request.query_params)
+
+    try:
+        with get_db() as db:
+            tool_map = {
+                # ESP tools
+                "list_esps": db.get_all_esps,
+                "get_esp": lambda: db.get_esp(args.get("esp_id")),
+                "get_esp_bom": lambda: db.get_esp_bom_parts(args.get("esp_id")),
+                "get_bom_summary": lambda: db.get_bom_summary(args.get("esp_id")),
+                "get_esps_by_series": lambda: db.get_esps_by_series(args.get("series")),
+                "create_esp": lambda: db.create_esp(
+                    esp_id=args.get("esp_id"),
+                    model_name=args.get("model_name"),
+                    series=args.get("series"),
+                    power_rating_kw=float(args.get("power_rating_kw", 0)),
+                    voltage_v=int(args.get("voltage_v", 0)),
+                    frequency_hz=float(args.get("frequency_hz", 0)),
+                    flow_rate_m3d=float(args.get("flow_rate_m3d", 0)),
+                    stages=int(args.get("stages", 0)),
+                    cable_length_m=float(args.get("cable_length_m", 0)),
+                ),
+                "delete_esp": lambda: db.delete_esp(args.get("esp_id")),
+                # Part tools
+                "list_parts": db.get_all_parts,
+                "get_part": lambda: db.get_part(args.get("part_number")),
+                "search_parts": lambda: db.search_parts(args.get("query")),
+                "get_parts_by_category": lambda: db.get_parts_by_category(args.get("category")),
+                "get_critical_parts": db.get_critical_parts,
+                "get_part_assemblies": lambda: db.get_assemblies_using_part(args.get("part_number")),
+                "create_part": lambda: db.create_part(
+                    part_number=args.get("part_number"),
+                    name=args.get("name"),
+                    category=args.get("category"),
+                    material=args.get("material"),
+                    weight_kg=float(args.get("weight_kg", 0)),
+                    is_critical=args.get("is_critical", False),
+                ),
+                "update_part": lambda: db.update_part(
+                    part_number=args.get("part_number"),
+                    name=args.get("name"),
+                    category=args.get("category"),
+                    material=args.get("material"),
+                    weight_kg=float(args.get("weight_kg", 0)) if args.get("weight_kg") else None,
+                    is_critical=args.get("is_critical"),
+                ),
+                "delete_part": lambda: db.delete_part(args.get("part_number")),
+                # Assembly tools
+                "list_assemblies": db.get_all_assemblies,
+                "get_assembly": lambda: db.get_assembly(args.get("assembly_code")),
+                "get_assembly_esps": lambda: db.get_esps_using_assembly(args.get("assembly_code")),
+                "create_assembly": lambda: db.create_assembly(
+                    assembly_code=args.get("assembly_code"),
+                    name=args.get("name"),
+                ),
+                "delete_assembly": lambda: db.delete_assembly(args.get("assembly_code")),
+                "add_part_to_assembly": lambda: db.add_part_to_assembly(
+                    args.get("assembly_code"),
+                    args.get("part_number"),
+                ),
+                "remove_part_from_assembly": lambda: db.remove_part_from_assembly(
+                    args.get("assembly_code"),
+                    args.get("part_number"),
+                ),
+                "update_assembly_part_quantity": lambda: db.update_assembly_part_quantity(
+                    args.get("assembly_code"),
+                    args.get("part_number"),
+                    int(args.get("quantity", 1)),
+                ),
+                # Stats / view tools
+                "get_stats": lambda: {
+                    "total_esps": len(db.get_all_esps()),
+                    "total_parts": len(db.get_all_parts()),
+                    "total_assemblies": len(db.get_all_assemblies()),
+                    "critical_parts": len(db.get_critical_parts()),
+                },
+                "view_dashboard": lambda: {
+                    "total_esps": len(db.get_all_esps()),
+                    "total_parts": len(db.get_all_parts()),
+                    "total_assemblies": len(db.get_all_assemblies()),
+                    "critical_parts": len(db.get_critical_parts()),
+                },
+                "view_esp_catalogue": db.get_all_esps,
+                "view_esp_bom": lambda: db.get_esp_bom_parts(args.get("esp_id")),
+                "manage_parts": db.get_all_parts,
+                "manage_assemblies": db.get_all_assemblies,
+            }
+
+            if tool_name in tool_map:
+                result = tool_map[tool_name]()
+                return JSONResponse(result)
+            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)

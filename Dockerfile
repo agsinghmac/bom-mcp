@@ -14,7 +14,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY esp_db.py api.py cli.py run_mcp.py mcp_server.py http_server.py version.py ./
+COPY esp_db.py api.py cli.py run_mcp.py mcp_server.py skill_resource_manager.py version.py ./
+COPY .skills/ .skills/
 
 # Create database directory
 RUN mkdir -p /app/data
@@ -22,5 +23,5 @@ RUN mkdir -p /app/data
 # Expose port 8080 (Cloud Run default)
 EXPOSE 8080
 
-# Run HTTP REST wrapper server
-CMD ["python", "http_server.py", "--port", "8080"]
+# Run FastMCP native streamable-http server
+CMD ["python", "run_mcp.py", "--port", "8080"]
