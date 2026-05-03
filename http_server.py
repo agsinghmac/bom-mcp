@@ -14,6 +14,7 @@ import argparse
 import json
 from flask import Flask, jsonify, request
 from esp_db import ESPDatabase, DatabasePath
+from version import APP_VERSION
 
 
 def create_app():
@@ -22,10 +23,19 @@ def create_app():
     def get_db():
         return ESPDatabase(DatabasePath.DEFAULT)
 
+    @app.after_request
+    def add_version_header(response):
+        response.headers["X-App-Version"] = APP_VERSION
+        return response
+
     # Health check
     @app.route('/health')
     def health():
-        return jsonify({"status": "healthy"})
+        return jsonify({"status": "healthy", "version": APP_VERSION})
+
+    @app.route('/version')
+    def version():
+        return jsonify({"version": APP_VERSION})
 
     # Tool proxy endpoint - calls a tool by name with args
     @app.route('/tool/<tool_name>', methods=['GET', 'POST'])
@@ -130,7 +140,7 @@ def create_app():
                 # For GET requests, return server info
                 return jsonify({
                     "name": "ESP BOM MCP Server",
-                    "version": "1.0.0",
+                    "version": APP_VERSION,
                     "description": "Electric Submersible Pump Parts and BOM Database"
                 })
 

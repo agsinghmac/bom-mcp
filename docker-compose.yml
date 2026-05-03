@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.python
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     ports:
       - "3001:3001"
     restart: unless-stopped
